@@ -1,0 +1,56 @@
+[package]
+name = "magent"
+version = "0.1.0"
+description = "Multi-Agent Concept Optimization Engine"
+authors = ["MAGent Team"]
+license = "MIT"
+repository = ""
+edition = "2021"
+default-run = "magent"
+
+# 抑制开发期间的一些警告
+[profile.dev]
+# 减少警告显示
+overflow-checks = false
+
+[lib]
+name = "magent_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "magent"
+path = "src/main.rs"
+
+[[bin]]
+name = "test_ai"
+path = "src/bin/test_ai.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+tauri-plugin-shell = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.45", features = ["full"] }
+sqlx = { version = "0.8.2", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
+# qdrant-client = "1.12"  # 暂时注释掉，先让基础功能编译通过
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+config = "0.14"
+notify = "6.1"
+handlebars = "5.0"
+ring = "0.17"
+chacha20poly1305 = "0.10"
+dashmap = "6.0"
+anyhow = "1.0"
+thiserror = "1.0"
+async-trait = "0.1"
+futures = "0.3"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-shell = "2.0"

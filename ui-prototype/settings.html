@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统设置 - MAgent</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        .primary-gradient {
+            background: linear-gradient(135deg, #3b82f6 0%, #9333ea 100%);
+        }
+        
+        .setting-item {
+            transition: all 0.3s ease;
+        }
+        
+        .setting-item:hover {
+            background-color: #f9fafb;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 24px;
+            background-color: #e5e7eb;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .toggle-switch.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #9333ea 100%);
+        }
+        
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+        }
+        
+        .toggle-switch.active::after {
+            transform: translateX(24px);
+        }
+        
+        .nav-item {
+            transition: all 0.3s ease;
+        }
+        
+        .nav-item.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #9333ea 100%);
+            color: white;
+        }
+        
+        .setting-section {
+            display: none;
+        }
+        
+        .setting-section.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- 顶部导航 -->
+        <nav class="bg-white border-b border-gray-200 px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button onclick="window.location.href='index.html'" class="flex items-center text-gray-600 hover:text-gray-900">
+                        <i data-lucide="arrow-left" class="w-5 h-5 mr-2"></i>
+                        返回主页
+                    </button>
+                    <div class="h-6 w-px bg-gray-300"></div>
+                    <h1 class="text-xl font-semibold text-gray-900">系统设置</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="px-4 py-2 primary-gradient text-white rounded-lg hover:opacity-90 transition-opacity">
+                        <i data-lucide="save" class="w-4 h-4 inline mr-2"></i>
+                        保存设置
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="flex h-screen">
+            <!-- 左侧导航 -->
+            <div class="w-80 bg-white border-r border-gray-200 p-6">
+                <div class="space-y-2">
+                    <button onclick="showSection('general')" class="nav-item active w-full text-left px-4 py-3 rounded-lg flex items-center">
+                        <i data-lucide="settings" class="w-5 h-5 mr-3"></i>
+                        <span>常规设置</span>
+                    </button>
+                    <button onclick="showSection('ai')" class="nav-item w-full text-left px-4 py-3 rounded-lg flex items-center text-gray-700 hover:bg-gray-100">
+                        <i data-lucide="brain" class="w-5 h-5 mr-3"></i>
+                        <span>AI 配置</span>
+                    </button>
+                    <button onclick="showSection('workflow')" class="nav-item w-full text-left px-4 py-3 rounded-lg flex items-center text-gray-700 hover:bg-gray-100">
+                        <i data-lucide="workflow" class="w-5 h-5 mr-3"></i>
+                        <span>工作流设置</span>
+                    </button>
+                    <button onclick="showSection('team')" class="nav-item w-full text-left px-4 py-3 rounded-lg flex items-center text-gray-700 hover:bg-gray-100">
+                        <i data-lucide="users" class="w-5 h-5 mr-3"></i>
+                        <span>团队管理</span>
+                    </button>
+                    <button onclick="showSection('security')" class="nav-item w-full text-left px-4 py-3 rounded-lg flex items-center text-gray-700 hover:bg-gray-100">
+                        <i data-lucide="shield" class="w-5 h-5 mr-3"></i>
+                        <span>安全设置</span>
+                    </button>
+                    <button onclick="showSection('integration')" class="nav-item w-full text-left px-4 py-3 rounded-lg flex items-center text-gray-700 hover:bg-gray-100">
+                        <i data-lucide="plug" class="w-5 h-5 mr-3"></i>
+                        <span>集成配置</span>
+                    </button>
+                    <button onclick="showSection('notification')" class="nav-item w-full text-left px-4 py-3 rounded-lg flex items-center text-gray-700 hover:bg-gray-100">
+                        <i data-lucide="bell" class="w-5 h-5 mr-3"></i>
+                        <span>通知设置</span>
+                    </button>
+                    <button onclick="showSection('backup')" class="nav-item w-full text-left px-4 py-3 rounded-lg flex items-center text-gray-700 hover:bg-gray-100">
+                        <i data-lucide="database" class="w-5 h-5 mr-3"></i>
+                        <span>备份恢复</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右侧设置内容 -->
+            <div class="flex-1 p-8 overflow-y-auto">
+                <div class="max-w-4xl mx-auto">
+                    
+                    <!-- 常规设置 -->
+                    <div id="general-section" class="setting-section active">
+                        <div class="bg-white rounded-xl shadow-lg border border-gray-200">
+                            <div class="p-6 border-b border-gray-200">
+                                <h2 class="text-xl font-semibold text-gray-900">常规设置</h2>
+                                <p class="text-gray-600 mt-1">管理系统的基本配置和偏好设置</p>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <!-- 语言设置 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">界面语言</h3>
+                                            <p class="text-sm text-gray-600">选择系统界面显示语言</p>
+                                        </div>
+                                        <select class="p-2 border border-gray-300 rounded-lg text-sm">
+                                            <option>中文 (简体)</option>
+                                            <option>English</option>
+                                            <option>中文 (繁體)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- 主题设置 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">界面主题</h3>
+                                            <p class="text-sm text-gray-600">选择系统外观主题</p>
+                                        </div>
+                                        <div class="flex space-x-2">
+                                            <button class="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm">浅色</button>
+                                            <button class="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm">深色</button>
+                                            <button class="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm">自动</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 时区设置 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">时区设置</h3>
+                                            <p class="text-sm text-gray-600">设置系统默认时区</p>
+                                        </div>
+                                        <select class="p-2 border border-gray-300 rounded-lg text-sm">
+                                            <option>UTC+8 北京时间</option>
+                                            <option>UTC+0 协调世界时</option>
+                                            <option>UTC-5 纽约时间</option>
+                                            <option>UTC+1 伦敦时间</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- 自动保存 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">自动保存</h3>
+                                            <p class="text-sm text-gray-600">自动保存工作进度</p>
+                                        </div>
+                                        <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+
+                                <!-- 快捷键 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">启用快捷键</h3>
+                                            <p class="text-sm text-gray-600">使用键盘快捷键提高效率</p>
+                                        </div>
+                                        <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI 配置 -->
+                    <div id="ai-section" class="setting-section">
+                        <div class="bg-white rounded-xl shadow-lg border border-gray-200">
+                            <div class="p-6 border-b border-gray-200">
+                                <h2 class="text-xl font-semibold text-gray-900">AI 配置</h2>
+                                <p class="text-gray-600 mt-1">配置 AI 模型和智能功能</p>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <!-- 主要模型选择 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">主要语言模型</h3>
+                                            <p class="text-sm text-gray-600">选择系统使用的主要 AI 模型</p>
+                                        </div>
+                                        <select class="p-2 border border-gray-300 rounded-lg text-sm">
+                                            <option>GPT-4 Turbo</option>
+                                            <option>GPT-3.5 Turbo</option>
+                                            <option>Claude-3 Opus</option>
+                                            <option>Gemini Pro</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- 响应创意度 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div>
+                                                <h3 class="font-medium text-gray-900">响应创意度</h3>
+                                                <p class="text-sm text-gray-600">调整 AI 响应的创造性程度</p>
+                                            </div>
+                                            <span class="text-sm font-medium text-blue-600">0.7</span>
+                                        </div>
+                                        <div class="flex items-center space-x-4">
+                                            <span class="text-xs text-gray-500">保守</span>
+                                            <input type="range" min="0" max="1" step="0.1" value="0.7" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider">
+                                            <span class="text-xs text-gray-500">创新</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 最大 Token 数 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">最大 Token 数</h3>
+                                            <p class="text-sm text-gray-600">限制单次对话的最大长度</p>
+                                        </div>
+                                        <input type="number" value="4000" class="w-24 p-2 border border-gray-300 rounded-lg text-sm">
+                                    </div>
+                                </div>
+
+                                <!-- 上下文记忆 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">上下文记忆</h3>
+                                            <p class="text-sm text-gray-600">保留对话历史提供更好的连续性</p>
+                                        </div>
+                                        <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+
+                                <!-- 知识库集成 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">知识库集成</h3>
+                                            <p class="text-sm text-gray-600">集成企业知识库进行增强检索</p>
+                                        </div>
+                                        <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+
+                                <!-- AI 工作流测试 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div>
+                                                <h3 class="font-medium text-gray-900">AI 工作流测试</h3>
+                                                <p class="text-sm text-gray-600">测试端到端的AI工作流程是否正常运行</p>
+                                            </div>
+                                            <div class="flex space-x-2">
+                                                <button id="test-ai-button" onclick="testAIWorkflow()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors">
+                                                    <i data-lucide="play" class="w-4 h-4 inline mr-2"></i>
+                                                    运行测试
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div id="test-results" class="hidden">
+                                            <div class="p-3 bg-gray-50 rounded-lg">
+                                                <div class="flex items-center mb-2">
+                                                    <i data-lucide="clock" class="w-4 h-4 text-gray-500 mr-2"></i>
+                                                    <span class="text-sm text-gray-600">测试进度</span>
+                                                </div>
+                                                <div class="space-y-2">
+                                                    <div id="test-status" class="text-sm text-gray-700">准备开始测试...</div>
+                                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                                        <div id="test-progress" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                                    </div>
+                                                </div>
+                                                <div id="test-output" class="mt-3 text-sm"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 工作流设置 -->
+                    <div id="workflow-section" class="setting-section">
+                        <div class="bg-white rounded-xl shadow-lg border border-gray-200">
+                            <div class="p-6 border-b border-gray-200">
+                                <h2 class="text-xl font-semibold text-gray-900">工作流设置</h2>
+                                <p class="text-gray-600 mt-1">自定义项目工作流程和阶段</p>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <!-- 默认工作流 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">默认工作流模板</h3>
+                                            <p class="text-sm text-gray-600">新项目使用的默认工作流程</p>
+                                        </div>
+                                        <select class="p-2 border border-gray-300 rounded-lg text-sm">
+                                            <option>标准项目流程</option>
+                                            <option>敏捷开发流程</option>
+                                            <option>瀑布开发流程</option>
+                                            <option>自定义流程</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- 阶段设置 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div>
+                                        <h3 class="font-medium text-gray-900 mb-3">工作流阶段</h3>
+                                        <div class="space-y-3">
+                                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                <div class="flex items-center">
+                                                    <i data-lucide="lightbulb" class="w-5 h-5 text-blue-500 mr-3"></i>
+                                                    <span class="font-medium">需求分析</span>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                                    <button class="text-gray-400 hover:text-gray-600">
+                                                        <i data-lucide="settings" class="w-4 h-4"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                <div class="flex items-center">
+                                                    <i data-lucide="pen-tool" class="w-5 h-5 text-green-500 mr-3"></i>
+                                                    <span class="font-medium">方案设计</span>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                                    <button class="text-gray-400 hover:text-gray-600">
+                                                        <i data-lucide="settings" class="w-4 h-4"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                <div class="flex items-center">
+                                                    <i data-lucide="check-circle" class="w-5 h-5 text-orange-500 mr-3"></i>
+                                                    <span class="font-medium">方案验证</span>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                                    <button class="text-gray-400 hover:text-gray-600">
+                                                        <i data-lucide="settings" class="w-4 h-4"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                <div class="flex items-center">
+                                                    <i data-lucide="download" class="w-5 h-5 text-purple-500 mr-3"></i>
+                                                    <span class="font-medium">成果输出</span>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                                    <button class="text-gray-400 hover:text-gray-600">
+                                                        <i data-lucide="settings" class="w-4 h-4"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 自动切换 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">自动阶段切换</h3>
+                                            <p class="text-sm text-gray-600">完成阶段任务后自动进入下一阶段</p>
+                                        </div>
+                                        <div class="toggle-switch" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+
+                                <!-- 进度通知 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">进度通知</h3>
+                                            <p class="text-sm text-gray-600">阶段完成时发送通知</p>
+                                        </div>
+                                        <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 团队管理 -->
+                    <div id="team-section" class="setting-section">
+                        <div class="bg-white rounded-xl shadow-lg border border-gray-200">
+                            <div class="p-6 border-b border-gray-200">
+                                <h2 class="text-xl font-semibold text-gray-900">团队管理</h2>
+                                <p class="text-gray-600 mt-1">管理团队成员和权限设置</p>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <!-- 成员邀请 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div>
+                                        <h3 class="font-medium text-gray-900 mb-3">邀请团队成员</h3>
+                                        <div class="flex space-x-2">
+                                            <input type="email" placeholder="输入邮箱地址" class="flex-1 p-2 border border-gray-300 rounded-lg text-sm">
+                                            <select class="p-2 border border-gray-300 rounded-lg text-sm">
+                                                <option>管理员</option>
+                                                <option>编辑者</option>
+                                                <option>查看者</option>
+                                            </select>
+                                            <button class="px-4 py-2 primary-gradient text-white rounded-lg hover:opacity-90 transition-opacity text-sm">
+                                                邀请
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 当前成员 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div>
+                                        <h3 class="font-medium text-gray-900 mb-3">当前成员 (8)</h3>
+                                        <div class="space-y-3">
+                                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                <div class="flex items-center">
+                                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                                                        <span class="text-sm text-white font-medium">张</span>
+                                                    </div>
+                                                    <div>
+                                                        <div class="font-medium text-gray-900">张三</div>
+                                                        <div class="text-sm text-gray-600">zhang@company.com</div>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">管理员</span>
+                                                    <button class="text-gray-400 hover:text-gray-600">
+                                                        <i data-lucide="settings" class="w-4 h-4"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                <div class="flex items-center">
+                                                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3">
+                                                        <span class="text-sm text-white font-medium">李</span>
+                                                    </div>
+                                                    <div>
+                                                        <div class="font-medium text-gray-900">李四</div>
+                                                        <div class="text-sm text-gray-600">li@company.com</div>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">编辑者</span>
+                                                    <button class="text-gray-400 hover:text-gray-600">
+                                                        <i data-lucide="settings" class="w-4 h-4"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                <div class="flex items-center">
+                                                    <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-3">
+                                                        <span class="text-sm text-white font-medium">王</span>
+                                                    </div>
+                                                    <div>
+                                                        <div class="font-medium text-gray-900">王五</div>
+                                                        <div class="text-sm text-gray-600">wang@company.com</div>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">查看者</span>
+                                                    <button class="text-gray-400 hover:text-gray-600">
+                                                        <i data-lucide="settings" class="w-4 h-4"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 安全设置 -->
+                    <div id="security-section" class="setting-section">
+                        <div class="bg-white rounded-xl shadow-lg border border-gray-200">
+                            <div class="p-6 border-b border-gray-200">
+                                <h2 class="text-xl font-semibold text-gray-900">安全设置</h2>
+                                <p class="text-gray-600 mt-1">保护您的账户和数据安全</p>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <!-- 密码设置 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">修改密码</h3>
+                                            <p class="text-sm text-gray-600">定期更换密码以保障账户安全</p>
+                                        </div>
+                                        <button class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm">
+                                            修改
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- 双因素认证 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">双因素认证</h3>
+                                            <p class="text-sm text-gray-600">增强账户安全性</p>
+                                        </div>
+                                        <div class="toggle-switch" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+
+                                <!-- 登录历史 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">登录历史</h3>
+                                            <p class="text-sm text-gray-600">查看最近的登录记录</p>
+                                        </div>
+                                        <button class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm">
+                                            查看
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- 数据加密 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">数据加密</h3>
+                                            <p class="text-sm text-gray-600">启用端到端数据加密</p>
+                                        </div>
+                                        <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 集成配置 -->
+                    <div id="integration-section" class="setting-section">
+                        <div class="bg-white rounded-xl shadow-lg border border-gray-200">
+                            <div class="p-6 border-b border-gray-200">
+                                <h2 class="text-xl font-semibold text-gray-900">集成配置</h2>
+                                <p class="text-gray-600 mt-1">连接第三方服务和工具</p>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <!-- GitHub 集成 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <div class="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center mr-3">
+                                                <i data-lucide="github" class="w-5 h-5 text-white"></i>
+                                            </div>
+                                            <div>
+                                                <h3 class="font-medium text-gray-900">GitHub</h3>
+                                                <p class="text-sm text-gray-600">同步代码仓库和问题</p>
+                                            </div>
+                                        </div>
+                                        <button class="px-4 py-2 primary-gradient text-white rounded-lg hover:opacity-90 transition-opacity text-sm">
+                                            连接
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Slack 集成 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <div class="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mr-3">
+                                                <i data-lucide="slack" class="w-5 h-5 text-white"></i>
+                                            </div>
+                                            <div>
+                                                <h3 class="font-medium text-gray-900">Slack</h3>
+                                                <p class="text-sm text-gray-600">接收项目通知和更新</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-sm text-green-600">已连接</span>
+                                            <button class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm">
+                                                配置
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Jira 集成 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
+                                                <i data-lucide="layers" class="w-5 h-5 text-white"></i>
+                                            </div>
+                                            <div>
+                                                <h3 class="font-medium text-gray-900">Jira</h3>
+                                                <p class="text-sm text-gray-600">同步项目任务和进度</p>
+                                            </div>
+                                        </div>
+                                        <button class="px-4 py-2 primary-gradient text-white rounded-lg hover:opacity-90 transition-opacity text-sm">
+                                            连接
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 通知设置 -->
+                    <div id="notification-section" class="setting-section">
+                        <div class="bg-white rounded-xl shadow-lg border border-gray-200">
+                            <div class="p-6 border-b border-gray-200">
+                                <h2 class="text-xl font-semibold text-gray-900">通知设置</h2>
+                                <p class="text-gray-600 mt-1">管理系统通知和提醒</p>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <!-- 邮件通知 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">邮件通知</h3>
+                                            <p class="text-sm text-gray-600">接收重要更新的邮件提醒</p>
+                                        </div>
+                                        <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+
+                                <!-- 浏览器通知 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">浏览器通知</h3>
+                                            <p class="text-sm text-gray-600">在浏览器中显示桌面通知</p>
+                                        </div>
+                                        <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+
+                                <!-- 项目更新 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">项目更新通知</h3>
+                                            <p class="text-sm text-gray-600">项目状态变更时通知</p>
+                                        </div>
+                                        <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+
+                                <!-- 团队活动 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">团队活动通知</h3>
+                                            <p class="text-sm text-gray-600">团队成员活动提醒</p>
+                                        </div>
+                                        <div class="toggle-switch" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 备份恢复 -->
+                    <div id="backup-section" class="setting-section">
+                        <div class="bg-white rounded-xl shadow-lg border border-gray-200">
+                            <div class="p-6 border-b border-gray-200">
+                                <h2 class="text-xl font-semibold text-gray-900">备份恢复</h2>
+                                <p class="text-gray-600 mt-1">管理数据备份和恢复</p>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <!-- 自动备份 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">自动备份</h3>
+                                            <p class="text-sm text-gray-600">定期自动备份项目数据</p>
+                                        </div>
+                                        <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                                    </div>
+                                </div>
+
+                                <!-- 备份频率 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">备份频率</h3>
+                                            <p class="text-sm text-gray-600">设置自动备份的时间间隔</p>
+                                        </div>
+                                        <select class="p-2 border border-gray-300 rounded-lg text-sm">
+                                            <option>每天</option>
+                                            <option>每周</option>
+                                            <option>每月</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- 备份历史 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div>
+                                        <h3 class="font-medium text-gray-900 mb-3">备份历史</h3>
+                                        <div class="space-y-2">
+                                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                <div>
+                                                    <div class="font-medium text-gray-900">2024-01-15 全量备份</div>
+                                                    <div class="text-sm text-gray-600">大小: 245 MB</div>
+                                                </div>
+                                                <div class="flex space-x-2">
+                                                    <button class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">下载</button>
+                                                    <button class="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200">恢复</button>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                <div>
+                                                    <div class="font-medium text-gray-900">2024-01-14 增量备份</div>
+                                                    <div class="text-sm text-gray-600">大小: 45 MB</div>
+                                                </div>
+                                                <div class="flex space-x-2">
+                                                    <button class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">下载</button>
+                                                    <button class="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200">恢复</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 立即备份 -->
+                                <div class="setting-item p-4 rounded-lg border border-gray-200">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">手动备份</h3>
+                                            <p class="text-sm text-gray-600">立即创建完整数据备份</p>
+                                        </div>
+                                        <button class="px-4 py-2 primary-gradient text-white rounded-lg hover:opacity-90 transition-opacity text-sm">
+                                            立即备份
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化 Lucide 图标
+        lucide.createIcons();
+
+        // 切换设置部分
+        function showSection(sectionId) {
+            // 隐藏所有部分
+            document.querySelectorAll('.setting-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // 显示选中部分
+            document.getElementById(sectionId + '-section').classList.add('active');
+            
+            // 更新导航状态
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                item.classList.add('text-gray-700', 'hover:bg-gray-100');
+                item.classList.remove('text-white');
+            });
+            
+            event.target.closest('.nav-item').classList.add('active');
+            event.target.closest('.nav-item').classList.remove('text-gray-700', 'hover:bg-gray-100');
+            event.target.closest('.nav-item').classList.add('text-white');
+        }
+
+        // 切换开关
+        function toggleSwitch(element) {
+            element.classList.toggle('active');
+        }
+
+        // 滑块事件
+        document.addEventListener('input', function(e) {
+            if (e.target.type === 'range') {
+                const value = e.target.value;
+                const label = e.target.closest('.setting-item').querySelector('.text-blue-600');
+                if (label) {
+                    label.textContent = value;
+                }
+            }
+        });
+
+        // 测试AI工作流
+        async function testAIWorkflow() {
+            const button = document.getElementById('test-ai-button');
+            const resultsDiv = document.getElementById('test-results');
+            const statusDiv = document.getElementById('test-status');
+            const progressBar = document.getElementById('test-progress');
+            const outputDiv = document.getElementById('test-output');
+
+            // 显示测试结果区域
+            resultsDiv.classList.remove('hidden');
+            
+            // 禁用按钮
+            button.disabled = true;
+            button.innerHTML = '<i data-lucide="loader" class="w-4 h-4 inline mr-2 animate-spin"></i>测试中...';
+            
+            // 重置状态
+            statusDiv.textContent = '正在初始化AI测试...';
+            progressBar.style.width = '10%';
+            outputDiv.innerHTML = '';
+
+            try {
+                // 调用Tauri命令
+                const result = await window.__TAURI__.invoke('test_full_ai_workflow', {
+                    ideaContent: '开发一个智能项目管理助手，帮助团队提高协作效率'
+                });
+
+                // 更新进度
+                progressBar.style.width = '100%';
+                statusDiv.textContent = '测试完成';
+                
+                // 显示结果
+                if (result.status === 'success') {
+                    outputDiv.innerHTML = `
+                        <div class="text-green-700 bg-green-50 p-3 rounded-lg">
+                            <div class="flex items-center mb-2">
+                                <i data-lucide="check-circle" class="w-4 h-4 mr-2"></i>
+                                <span class="font-medium">测试成功</span>
+                            </div>
+                            <div class="text-sm space-y-1">
+                                <div>✅ 澄清问题生成: ${result.questions_count || 0} 个问题</div>
+                                <div>✅ 创新建议生成: ${result.deltas_count || 0} 个建议</div>
+                                <div class="mt-2">
+                                    <div class="font-medium mb-1">主要建议:</div>
+                                    <ul class="list-disc list-inside text-xs space-y-1">
+                                        ${(result.top_suggestions || []).map(s => `<li>${s}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    outputDiv.innerHTML = `
+                        <div class="text-red-700 bg-red-50 p-3 rounded-lg">
+                            <div class="flex items-center mb-2">
+                                <i data-lucide="alert-circle" class="w-4 h-4 mr-2"></i>
+                                <span class="font-medium">测试失败</span>
+                            </div>
+                            <div class="text-sm">${result.error || '未知错误'}</div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                // 处理错误
+                progressBar.style.width = '0%';
+                statusDiv.textContent = '测试失败';
+                outputDiv.innerHTML = `
+                    <div class="text-red-700 bg-red-50 p-3 rounded-lg">
+                        <div class="flex items-center mb-2">
+                            <i data-lucide="x-circle" class="w-4 h-4 mr-2"></i>
+                            <span class="font-medium">连接错误</span>
+                        </div>
+                        <div class="text-sm">${error.message || error}</div>
+                    </div>
+                `;
+            } finally {
+                // 恢复按钮
+                button.disabled = false;
+                button.innerHTML = '<i data-lucide="play" class="w-4 h-4 inline mr-2"></i>运行测试';
+                
+                // 重新初始化图标
+                lucide.createIcons();
+            }
+        }
+    </script>
+</body>
+</html>

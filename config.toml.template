@@ -1,0 +1,45 @@
+# MAgent 配置文件模板
+# 复制此文件为 config.toml 并填入您的 API 密钥
+
+[models]
+default_provider = "openai"
+
+[models.openai]
+api_key = "your-openai-api-key-here"
+base_url = "https://api.openai.com/v1"
+default_model = "gpt-3.5-turbo"
+temperature = 0.7
+max_tokens = 2000
+
+[models.claude]
+api_key = "your-claude-api-key-here"
+base_url = "https://api.anthropic.com"
+default_model = "claude-3-sonnet-20240229"
+temperature = 0.7
+max_tokens = 2000
+
+[models.deepseek]
+api_key = "your-deepseek-api-key-here"
+base_url = "https://api.deepseek.com/v1"
+default_model = "deepseek-chat"
+temperature = 0.7
+max_tokens = 2000
+
+[models.gemini]
+api_key = "your-gemini-api-key-here"
+base_url = "https://generativelanguage.googleapis.com/v1"
+default_model = "gemini-pro"
+temperature = 0.7
+max_tokens = 2000
+
+[app]
+# 应用设置
+log_level = "info"
+max_sessions = 100
+auto_save = true
+
+[workflow]
+# 工作流设置
+max_iterations = 5
+confidence_threshold = 0.8
+timeout_seconds = 30

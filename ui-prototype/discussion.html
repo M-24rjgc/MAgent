@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能体协作讨论 - 想法完成引擎</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        :root {
+            --primary-500: #3b82f6;
+            --secondary-600: #9333ea;
+        }
+        
+        .primary-gradient {
+            background: linear-gradient(135deg, var(--primary-500) 0%, var(--secondary-600) 100%);
+        }
+        
+        .agent-card {
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .agent-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
+        
+        .agent-card.active {
+            border-color: #3b82f6;
+            background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+        }
+        
+        .agent-card.speaking {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15); }
+            50% { box-shadow: 0 4px 20px rgba(16, 185, 129, 0.25); }
+        }
+        
+        .agent-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+        }
+        
+        .agent-status.online {
+            background-color: #10b981;
+            animation: blink 2s infinite;
+        }
+        
+        .agent-status.offline {
+            background-color: #6b7280;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        
+        .message-timeline {
+            position: relative;
+        }
+        
+        .message-timeline::before {
+            content: '';
+            position: absolute;
+            left: 1rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, #e5e7eb 0%, #3b82f6 50%, #e5e7eb 100%);
+        }
+        
+        .timeline-item {
+            position: relative;
+            padding-left: 3rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .timeline-avatar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            border: 2px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .message-content {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            animation: slideInLeft 0.3s ease-out;
+        }
+        
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .typing-indicator {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            animation: slideInLeft 0.3s ease-out;
+        }
+        
+        .typing-dots {
+            display: flex;
+            gap: 0.25rem;
+        }
+        
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #6366f1;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        .typing-dot:nth-child(3) { animation-delay: 0s; }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { 
+                transform: scale(0);
+            } 40% { 
+                transform: scale(1);
+            }
+        }
+        
+        .convergence-meter {
+            background: conic-gradient(from 0deg, #3b82f6 0%, #3b82f6 270deg, #e5e7eb 270deg, #e5e7eb 360deg);
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .convergence-meter::before {
+            content: '';
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+        }
+        
+        .convergence-value {
+            position: relative;
+            z-index: 1;
+            font-weight: bold;
+            color: #1f2937;
+        }
+        
+        .proposal-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        
+        .proposal-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .support-bar {
+            height: 4px;
+            border-radius: 2px;
+            background: #e5e7eb;
+            overflow: hidden;
+        }
+        
+        .support-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        
+        .discussion-controls {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body class="h-screen bg-gray-50 overflow-hidden">
+    <!-- 返回导航 -->
+    <div class="fixed top-4 left-4 z-50">
+        <button onclick="window.location.href='questioning.html'" class="bg-white rounded-lg shadow-lg border border-gray-200 px-4 py-2 flex items-center space-x-2 hover:bg-gray-50 transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span class="text-sm font-medium">返回智能反问</span>
+        </button>
+    </div>
+
+    <div class="h-full flex">
+        <!-- 左侧智能体列表 -->
+        <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-gray-900">智能体团队</h2>
+                    <div class="flex items-center space-x-2">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            5个智能体
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2 text-sm text-gray-600">
+                    <i data-lucide="users" class="w-4 h-4"></i>
+                    <span>多角度协作讨论</span>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 space-y-3">
+                <!-- 联网搜索智能体 -->
+                <div class="agent-card speaking" id="agent-search">
+                    <div class="agent-status online"></div>
+                    <div class="flex items-center space-x-3 mb-3">
+                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="search" class="w-5 h-5 text-blue-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">搜索专家</h3>
+                            <p class="text-xs text-gray-500">联网搜索智能体</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">服务</span>
+                            <span class="text-gray-900">秘塔搜索</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">任务</span>
+                            <span class="text-green-600 font-medium">搜索中...</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">贡献</span>
+                            <span class="text-gray-900">12条洞察</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 反驳型智能体 -->
+                <div class="agent-card active" id="agent-critic">
+                    <div class="agent-status online"></div>
+                    <div class="flex items-center space-x-3 mb-3">
+                        <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="shield" class="w-5 h-5 text-red-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">批判专家</h3>
+                            <p class="text-xs text-gray-500">反驳型智能体</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">模型</span>
+                            <span class="text-gray-900">GPT-4</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">状态</span>
+                            <span class="text-green-600 font-medium">活跃</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">贡献</span>
+                            <span class="text-gray-900">8个质疑</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 领域专家智能体 -->
+                <div class="agent-card" id="agent-expert">
+                    <div class="agent-status online"></div>
+                    <div class="flex items-center space-x-3 mb-3">
+                        <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="graduation-cap" class="w-5 h-5 text-green-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">领域专家</h3>
+                            <p class="text-xs text-gray-500">AI技术专家</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">模型</span>
+                            <span class="text-gray-900">Claude-3</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">状态</span>
+                            <span class="text-green-600 font-medium">活跃</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">贡献</span>
+                            <span class="text-gray-900">15个方案</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 创新专家智能体 -->
+                <div class="agent-card" id="agent-innovation">
+                    <div class="agent-status online"></div>
+                    <div class="flex items-center space-x-3 mb-3">
+                        <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="lightbulb" class="w-5 h-5 text-purple-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">创新专家</h3>
+                            <p class="text-xs text-gray-500">创新方案设计</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">模型</span>
+                            <span class="text-gray-900">DeepSeek</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">状态</span>
+                            <span class="text-green-600 font-medium">活跃</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">贡献</span>
+                            <span class="text-gray-900">6个创意</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 可行性分析师 -->
+                <div class="agent-card" id="agent-feasibility">
+                    <div class="agent-status online"></div>
+                    <div class="flex items-center space-x-3 mb-3">
+                        <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="calculator" class="w-5 h-5 text-orange-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">分析师</h3>
+                            <p class="text-xs text-gray-500">可行性分析</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">模型</span>
+                            <span class="text-gray-900">Gemini Pro</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">状态</span>
+                            <span class="text-green-600 font-medium">活跃</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">贡献</span>
+                            <span class="text-gray-900">10个评估</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-gray-200">
+                <div class="discussion-controls">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm font-medium text-gray-900">讨论进行中</span>
+                    </div>
+                    <button onclick="toggleDiscussion()" id="discussion-toggle" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition-colors flex items-center space-x-1">
+                        <i data-lucide="pause" class="w-3 h-3"></i>
+                        <span>暂停</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间讨论区 -->
+        <div class="flex-1 flex flex-col">
+            <!-- 讨论标题栏 -->
+            <div class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+                <div class="flex items-center space-x-3">
+                    <div class="flex -space-x-2">
+                        <div class="w-8 h-8 bg-blue-100 rounded-full border-2 border-white flex items-center justify-center">
+                            <i data-lucide="search" class="w-4 h-4 text-blue-600"></i>
+                        </div>
+                        <div class="w-8 h-8 bg-red-100 rounded-full border-2 border-white flex items-center justify-center">
+                            <i data-lucide="shield" class="w-4 h-4 text-red-600"></i>
+                        </div>
+                        <div class="w-8 h-8 bg-green-100 rounded-full border-2 border-white flex items-center justify-center">
+                            <i data-lucide="graduation-cap" class="w-4 h-4 text-green-600"></i>
+                        </div>
+                        <div class="w-8 h-8 bg-purple-100 rounded-full border-2 border-white flex items-center justify-center">
+                            <i data-lucide="lightbulb" class="w-4 h-4 text-purple-600"></i>
+                        </div>
+                        <div class="w-8 h-8 bg-orange-100 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-orange-600">
+                            +1
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900">智能体协作讨论</h3>
+                        <p class="text-sm text-gray-500">AI助手改进方案 - 多角度分析中</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <button class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                        <i data-lucide="volume-2" class="w-4 h-4"></i>
+                    </button>
+                    <button class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 讨论内容 -->
+            <div class="flex-1 overflow-y-auto p-6">
+                <div class="max-w-5xl mx-auto">
+                    <div class="message-timeline" id="discussion-timeline">
+                        <!-- 搜索专家发言 -->
+                        <div class="timeline-item">
+                            <div class="timeline-avatar bg-blue-100">
+                                <i data-lucide="search" class="w-4 h-4 text-blue-600"></i>
+                            </div>
+                            <div class="message-content">
+                                <div class="flex items-center space-x-2 mb-2">
+                                    <span class="font-medium text-gray-900">搜索专家</span>
+                                    <span class="text-xs text-gray-500">3分钟前</span>
+                                </div>
+                                <p class="text-gray-700 mb-3">我搜索了最新的AI助手技术趋势，发现了几个关键发展方向：</p>
+                                <ul class="text-gray-700 space-y-1 text-sm">
+                                    <li>• 多模态交互：结合语音、文本、图像的综合理解</li>
+                                    <li>• 长期记忆：保持多轮对话的上下文连贯性</li>
+                                    <li>• 专业知识库：针对特定领域的深度定制</li>
+                                    <li>• 个性化适配：根据用户习惯调整交互风格</li>
+                                </ul>
+                                <p class="text-gray-700 mt-3">建议重点关注长期记忆和专业知识库这两个方向。</p>
+                            </div>
+                        </div>
+
+                        <!-- 批判专家发言 -->
+                        <div class="timeline-item">
+                            <div class="timeline-avatar bg-red-100">
+                                <i data-lucide="shield" class="w-4 h-4 text-red-600"></i>
+                            </div>
+                            <div class="message-content">
+                                <div class="flex items-center space-x-2 mb-2">
+                                    <span class="font-medium text-gray-900">批判专家</span>
+                                    <span class="text-xs text-gray-500">2分钟前</span>
+                                </div>
+                                <p class="text-gray-700 mb-3">等等，我们需要深入思考几个关键问题：</p>
+                                <div class="bg-red-50 rounded-lg p-3 mb-3">
+                                    <p class="text-red-800 text-sm font-medium mb-2">潜在风险和挑战：</p>
+                                    <ul class="text-red-700 space-y-1 text-sm">
+                                        <li>• 长期记忆可能带来隐私泄露风险</li>
+                                        <li>• 专业知识库需要持续更新维护</li>
+                                        <li>• 个性化可能导致信息茧房效应</li>
+                                        <li>• 多模态交互增加了技术复杂度</li>
+                                    </ul>
+                                </div>
+                                <p class="text-gray-700">我们是否考虑过这些改进的成本效益比？现有用户是否真的需要这些功能？</p>
+                            </div>
+                        </div>
+
+                        <!-- 领域专家发言 -->
+                        <div class="timeline-item">
+                            <div class="timeline-avatar bg-green-100">
+                                <i data-lucide="graduation-cap" class="w-4 h-4 text-green-600"></i>
+                            </div>
+                            <div class="message-content">
+                                <div class="flex items-center space-x-2 mb-2">
+                                    <span class="font-medium text-gray-900">领域专家</span>
+                                    <span class="text-xs text-gray-500">1分钟前</span>
+                                </div>
+                                <p class="text-gray-700 mb-3">批判专家提出的担忧很有道理。从技术实现角度，我建议采用分层架构：</p>
+                                <div class="bg-green-50 rounded-lg p-3 mb-3">
+                                    <p class="text-green-800 text-sm font-medium mb-2">技术架构方案：</p>
+                                    <div class="space-y-2">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                                            <span class="text-green-700 text-sm">基础交互层：处理基本对话逻辑</span>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                                            <span class="text-green-700 text-sm">记忆管理层：使用本地加密存储</span>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                                            <span class="text-green-700 text-sm">知识检索层：连接专业数据库</span>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                                            <span class="text-green-700 text-sm">个性化层：可选的用户偏好设置</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="text-gray-700">这样既能实现功能需求，又能解决隐私和维护问题。</p>
+                            </div>
+                        </div>
+
+                        <!-- 创新专家思考中 -->
+                        <div class="timeline-item" id="innovation-thinking">
+                            <div class="timeline-avatar bg-purple-100">
+                                <i data-lucide="lightbulb" class="w-4 h-4 text-purple-600"></i>
+                            </div>
+                            <div class="typing-indicator">
+                                <div class="flex items-center space-x-2">
+                                    <div class="typing-dots">
+                                        <div class="typing-dot"></div>
+                                        <div class="typing-dot"></div>
+                                        <div class="typing-dot"></div>
+                                    </div>
+                                    <span class="text-sm text-gray-500">创新专家正在思考创新方案...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧分析面板 -->
+        <div class="w-80 bg-gray-50 border-l border-gray-200 overflow-y-auto">
+            <div class="p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-6">讨论分析</h2>
+                
+                <!-- 收敛度分析 -->
+                <div class="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+                    <h3 class="font-medium text-gray-900 mb-4 flex items-center">
+                        <i data-lucide="target" class="w-5 h-5 mr-2"></i>
+                        意见收敛度
+                    </h3>
+                    <div class="flex items-center justify-center mb-4">
+                        <div class="convergence-meter">
+                            <div class="convergence-value">75%</div>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 text-center mb-3">观点趋于一致，接近达成共识</p>
+                    <div class="text-xs text-gray-500">
+                        <div class="flex justify-between mb-1">
+                            <span>技术方案</span>
+                            <span>90%</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span>实施策略</span>
+                            <span>80%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>风险控制</span>
+                            <span>60%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 关键提案 -->
+                <div class="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+                    <h3 class="font-medium text-gray-900 mb-4 flex items-center">
+                        <i data-lucide="lightbulb" class="w-5 h-5 mr-2"></i>
+                        关键提案
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="proposal-card">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="font-medium text-blue-900 text-sm">分层架构设计</div>
+                                <div class="text-xs text-blue-700">支持度: 92%</div>
+                            </div>
+                            <div class="support-bar">
+                                <div class="support-fill bg-blue-500" style="width: 92%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="proposal-card">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="font-medium text-green-900 text-sm">本地加密存储</div>
+                                <div class="text-xs text-green-700">支持度: 88%</div>
+                            </div>
+                            <div class="support-bar">
+                                <div class="support-fill bg-green-500" style="width: 88%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="proposal-card">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="font-medium text-purple-900 text-sm">专业知识库集成</div>
+                                <div class="text-xs text-purple-700">支持度: 85%</div>
+                            </div>
+                            <div class="support-bar">
+                                <div class="support-fill bg-purple-500" style="width: 85%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="proposal-card">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="font-medium text-orange-900 text-sm">渐进式实施</div>
+                                <div class="text-xs text-orange-700">支持度: 78%</div>
+                            </div>
+                            <div class="support-bar">
+                                <div class="support-fill bg-orange-500" style="width: 78%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 讨论统计 -->
+                <div class="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+                    <h3 class="font-medium text-gray-900 mb-4 flex items-center">
+                        <i data-lucide="bar-chart" class="w-5 h-5 mr-2"></i>
+                        讨论统计
+                    </h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">发言次数</span>
+                            <span class="font-medium text-gray-900">47次</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">关键洞察</span>
+                            <span class="font-medium text-gray-900">23个</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">讨论时长</span>
+                            <span class="font-medium text-gray-900">15分钟</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">活跃智能体</span>
+                            <span class="font-medium text-gray-900">5/5</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="space-y-3">
+                    <button onclick="finishDiscussion()" class="w-full primary-gradient text-white py-2 px-4 rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center space-x-2">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>完成讨论</span>
+                    </button>
+                    
+                    <button onclick="extendDiscussion()" class="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>深入讨论</span>
+                    </button>
+                </div>
+
+                <!-- 实时提示 -->
+                <div class="mt-6 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div class="flex items-start space-x-2">
+                        <i data-lucide="check-circle" class="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0"></i>
+                        <div class="text-xs text-green-800">
+                            <div class="font-medium mb-1">✨ 讨论进展顺利</div>
+                            <div>智能体团队已就核心技术方案达成高度共识，建议进入验证阶段。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        let discussionActive = true;
+        let messageCount = 0;
+
+        function toggleDiscussion() {
+            const button = document.getElementById('discussion-toggle');
+            discussionActive = !discussionActive;
+            
+            if (discussionActive) {
+                button.innerHTML = '<i data-lucide="pause" class="w-3 h-3"></i><span>暂停</span>';
+                button.className = 'bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition-colors flex items-center space-x-1';
+                // 继续添加消息
+                scheduleNextMessage();
+            } else {
+                button.innerHTML = '<i data-lucide="play" class="w-3 h-3"></i><span>继续</span>';
+                button.className = 'bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition-colors flex items-center space-x-1';
+            }
+            lucide.createIcons();
+        }
+
+        function scheduleNextMessage() {
+            if (!discussionActive) return;
+            
+            setTimeout(() => {
+                if (discussionActive) {
+                    addNextMessage();
+                    scheduleNextMessage();
+                }
+            }, 3000 + Math.random() * 5000);
+        }
+
+        function addNextMessage() {
+            const timeline = document.getElementById('discussion-timeline');
+            const thinkingIndicator = document.getElementById('innovation-thinking');
+            
+            // 移除思考指示器
+            if (thinkingIndicator) {
+                thinkingIndicator.remove();
+            }
+            
+            const messages = [
+                {
+                    agent: 'innovation',
+                    name: '创新专家',
+                    icon: 'lightbulb',
+                    color: 'purple',
+                    content: `我有一个突破性的想法！除了传统的改进，我们可以引入"AI助手生态系统"概念：
+                    <div class="bg-purple-50 rounded-lg p-3 mt-3">
+                        <p class="text-purple-800 text-sm font-medium mb-2">创新特性：</p>
+                        <ul class="text-purple-700 space-y-1 text-sm">
+                            <li>• 助手间协作：多个专业助手协同工作</li>
+                            <li>• 学习型适配：从用户交互中持续学习</li>
+                            <li>• 情境感知：理解用户的工作环境和状态</li>
+                            <li>• 预测性建议：主动提供相关信息</li>
+                        </ul>
+                    </div>`
+                },
+                {
+                    agent: 'feasibility',
+                    name: '分析师',
+                    icon: 'calculator',
+                    color: 'orange',
+                    content: `从可行性角度分析，这个生态系统概念很有前景，但需要分阶段实施：
+                    <div class="bg-orange-50 rounded-lg p-3 mt-3">
+                        <p class="text-orange-800 text-sm font-medium mb-2">实施建议：</p>
+                        <div class="space-y-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded">第一阶段</span>
+                                <span class="text-orange-700 text-sm">改进单个助手的记忆和专业性</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded">第二阶段</span>
+                                <span class="text-orange-700 text-sm">引入多助手协作机制</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded">第三阶段</span>
+                                <span class="text-orange-700 text-sm">实现预测性和情境感知功能</span>
+                            </div>
+                        </div>
+                    </div>
+                    预估投入：6-12个月，团队规模：8-12人。ROI预期：用户满意度提升40%。`
+                }
+            ];
+            
+            const message = messages[messageCount % messages.length];
+            messageCount++;
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'timeline-item';
+            messageElement.innerHTML = `
+                <div class="timeline-avatar bg-${message.color}-100">
+                    <i data-lucide="${message.icon}" class="w-4 h-4 text-${message.color}-600"></i>
+                </div>
+                <div class="message-content">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="font-medium text-gray-900">${message.name}</span>
+                        <span class="text-xs text-gray-500">刚刚</span>
+                    </div>
+                    <div class="text-gray-700">${message.content}</div>
+                </div>
+            `;
+            
+            timeline.appendChild(messageElement);
+            lucide.createIcons();
+            
+            // 滚动到底部
+            const container = timeline.closest('.overflow-y-auto');
+            container.scrollTop = container.scrollHeight;
+            
+            // 更新智能体状态
+            updateAgentStatus(message.agent);
+        }
+
+        function updateAgentStatus(agentId) {
+            // 重置所有智能体状态
+            document.querySelectorAll('.agent-card').forEach(card => {
+                card.classList.remove('speaking');
+            });
+            
+            // 设置当前发言智能体状态
+            const agentCard = document.getElementById(`agent-${agentId}`);
+            if (agentCard) {
+                agentCard.classList.add('speaking');
+                setTimeout(() => {
+                    agentCard.classList.remove('speaking');
+                }, 3000);
+            }
+        }
+
+        function finishDiscussion() {
+            alert('讨论已完成！系统将生成最终的改进方案报告。');
+            // 实际实现中这里会跳转到验证阶段或成果输出页面
+        }
+
+        function extendDiscussion() {
+            alert('已安排智能体进行更深入的技术细节讨论。');
+            // 实际实现中这里会触发更多轮讨论
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 开始定期添加新消息
+            scheduleNextMessage();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,566 @@
+// src-tauri/src/tests/integration_test.rs
+// 集成测试 - 验证6个Agent的完整协作工作流
+
+use anyhow::Result;
+use std::sync::Arc;
+use tokio;
+use uuid::Uuid;
+
+use crate::agents::{
+    Agent, AgentContext, AgentResult, Criticism,
+    clarifier::ClarifierAgent,
+    innovator::InnovatorAgent, 
+    critic::CriticAgent,
+    synthesizer::SynthesizerAgent,
+    verifier::Ver    let innovation_deltas = match innovator_result {
+        AgentResult::Innovation(deltas) => {
+            println!("✅ Innovator测试成功，生成了{}个创新    // 验证Agent间状态传递
+    assert_eq!(iteration_version.session_id, session_id, "会话ID应该保持一致");
+
+    println!("✅ 简化集成测试完成！所有6个Agent基础功能验证成功");
+    println!("📈 测试结果总结:");
+    println!("   - Clarifier: {}个问题", clarification.qa_pairs.len());
+    println!("   - Innovator: {}个创新建议", innovation_deltas.len()); 
+    println!("   - Critic: {}个批评意见", criticisms.len());
+    println!("   - Synthesizer: v{}版本，置信度{:.1}%", 
+        iteration_version.version, iteration_version.confidence * 100.0);
+    println!("   - Verifier: 通过状态{}", verification_report.passed);
+    println!("   - Summarizer: {}字符报告", final_summary.len());en());
+            deltas
+        }
+        _ => panic!("Expected Innovation result"),
+    };,
+    summarizer::SummarizerAgent,
+};
+use crate::core::{
+    data_structures::{
+        IdeaSeed, StructuredIdea, Clarification, SlotType, QAPair,
+        IterationVersion, VerificationReport, Evidence, FactCheckStatus
+    },
+};
+use crate::config::AppConfig;
+use crate::storage::DataStore;
+
+/// 简化版本的Agent工作流测试
+#[tokio::test]
+async fn test_simple_agent_workflow() -> Result<()> {
+    println!("🚀 开始简化集成测试：验证各Agent基础功能");
+
+    // 1. 设置测试环境
+    let config = Arc::new(tokio::sync::RwLock::new(AppConfig::default()));
+    let data_store = Arc::new(DataStore::new().await?);
+
+    // 2. 创建测试用的初始想法
+    let idea_seed = IdeaSeed {
+        raw_text: "我想做一个能帮助学生提高学习效率的AI助手".to_string(),
+        context_hints: vec!["教育科技".to_string(), "AI助手".to_string()],
+        domain: Some("教育".to_string()),
+    };
+
+    let session_id = Uuid::new_v4();
+    println!("💡 测试想法: {}", idea_seed.raw_text);
+
+    // 3. 测试 Clarifier Agent
+    println!("\n📋 测试 Clarifier Agent...");
+    
+    let clarifier_context = AgentContext {
+        session_id,
+        current_version: None,
+        clarification: None,
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![],
+    };
+
+    let clarifier = ClarifierAgent::new(config.clone()).await?;
+    let clarifier_result = clarifier.execute(clarifier_context).await?;
+    
+    let clarification = match clarifier_result {
+        AgentResult::Clarification(c) => {
+            println!("✅ Clarifier测试成功，生成了{}个问题", c.qa_pairs.len());
+            c
+        }
+        _ => panic!("Expected Clarification result"),
+    };
+
+    // 4. 测试 Innovator Agent
+    println!("\n💡 测试 Innovator Agent...");
+    
+    let innovator_context = AgentContext {
+        session_id,
+        current_version: None,
+        clarification: Some(clarification.clone()),
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![AgentResult::Clarification(clarification.clone())],
+    };
+
+    let innovator = InnovatorAgent::new(config.clone()).await?;
+    let innovator_result = innovator.execute(innovator_context).await?;
+    
+    let innovation_deltas = match innovator_result {
+        AgentResult::Innovation(deltas) => {
+            println!("✅ Innovator测试成功，生成了{}个创新建议", deltas.len());
+            deltas
+        }
+        _ => panic!("Expected Innovation result"),
+    };
+
+    // 5. 测试 Critic Agent
+    println!("\n🔍 测试 Critic Agent...");
+    
+    let critic_context = AgentContext {
+        session_id,
+        current_version: None,
+        clarification: Some(clarification.clone()),
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![
+            AgentResult::Clarification(clarification.clone()),
+            AgentResult::Innovation(innovation_deltas.clone()),
+        ],
+    };
+
+    let critic = CriticAgent::new(config.clone()).await?;
+    let critic_result = critic.execute(critic_context).await?;
+    
+    let criticisms = match critic_result {
+        AgentResult::Criticism(crits) => {
+            println!("✅ Critic测试成功，生成了{}个批评意见", crits.len());
+            crits
+        }
+        _ => panic!("Expected Criticism result"),
+    };
+
+    // 6. 测试 Synthesizer Agent
+    println!("\n🔄 测试 Synthesizer Agent...");
+    
+    let synthesizer_context = AgentContext {
+        session_id,
+        current_version: None,
+        clarification: Some(clarification.clone()),
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![
+            AgentResult::Clarification(clarification.clone()),
+            AgentResult::Innovation(innovation_deltas.clone()),
+            AgentResult::Criticism(criticisms.clone()),
+        ],
+    };
+
+    let synthesizer = SynthesizerAgent::new(config.clone()).await?;
+    let synthesizer_result = synthesizer.execute(synthesizer_context).await?;
+    
+    let iteration_version = match synthesizer_result {
+        AgentResult::Synthesis(iter) => {
+            println!("✅ Synthesizer测试成功，生成版本 v{}", iter.version);
+            iter
+        }
+        _ => panic!("Expected Synthesis result"),
+    };
+
+    // 7. 测试 Verifier Agent
+    println!("\n🔍 测试 Verifier Agent...");
+    
+    let verifier_context = AgentContext {
+        session_id,
+        current_version: Some(iteration_version.clone()),
+        clarification: Some(clarification.clone()),
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![
+            AgentResult::Clarification(clarification.clone()),
+            AgentResult::Innovation(innovation_deltas.clone()),
+            AgentResult::Criticism(criticisms.clone()),
+            AgentResult::Iteration(iteration_version.clone()),
+        ],
+    };
+
+    let verifier = VerifierAgent::new(config.clone(), data_store.clone()).await?;
+    let verifier_result = verifier.execute(verifier_context).await?;
+    
+    let verification_report = match verifier_result {
+        AgentResult::Verification(report) => {
+            println!("✅ Verifier测试成功，验证状态: {}", report.passed);
+            report
+        }
+        _ => panic!("Expected Verification result"),
+    };
+
+    // 8. 测试 Summarizer Agent
+    println!("\n📊 测试 Summarizer Agent...");
+    
+    let summarizer_context = AgentContext {
+        session_id,
+        current_version: Some(iteration_version.clone()),
+        clarification: Some(clarification.clone()),
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![
+            AgentResult::Clarification(clarification.clone()),
+            AgentResult::Innovation(innovation_deltas.clone()),
+            AgentResult::Criticism(criticisms.clone()),
+            AgentResult::Iteration(iteration_version.clone()),
+            AgentResult::Verification(verification_report.clone()),
+        ],
+    };
+
+    let summarizer = SummarizerAgent::new(config.clone()).await?;
+    let summarizer_result = summarizer.execute(summarizer_context).await?;
+    
+    let final_summary = match summarizer_result {
+        AgentResult::Summary(summary) => {
+            println!("✅ Summarizer测试成功，生成报告长度: {} 字符", summary.len());
+            summary
+        }
+        _ => panic!("Expected Summary result"),
+    };
+
+    // 9. 验证完整性
+    println!("\n🏁 工作流完整性验证...");
+    
+    // 验证数据流连贯性
+    assert!(!clarification.qa_pairs.is_empty(), "澄清阶段应该生成问题");
+    assert!(!innovation_deltas.is_empty(), "创新阶段应该生成建议");
+    assert!(!criticisms.is_empty(), "批评阶段应该生成批评");
+    assert!(iteration_version.version > 0, "综合阶段应该生成版本");
+    assert!(!final_summary.is_empty(), "总结阶段应该生成报告");
+
+    // 验证Agent间状态传递
+    assert_eq!(iteration_version.session_id, session_id, "会话ID应该保持一致");
+
+    println!("✅ 简化集成测试完成！所有6个Agent基础功能验证成功");
+    println!("📈 测试结果总结:");
+    println!("   - Clarifier: {}个问题", clarification.qa_pairs.len());
+    println!("   - Innovator: {}个创新建议", innovation_deltas.len()); 
+    println!("   - Critic: {}个批评意见", criticisms.len());
+    println!("   - Synthesizer: v{}版本，置信度{:.1}%", 
+        iteration_version.version, iteration_version.confidence * 100.0);
+    println!("   - Verifier: 通过状态{:?}", verification_report.overall_pass);
+    println!("   - Summarizer: {}字符报告", final_summary.len());
+
+    Ok(())
+}
+
+/// 测试Agent基本构造和能力
+#[tokio::test]
+async fn test_agent_construction() -> Result<()> {
+    println!("🔧 开始测试：Agent构造和基础能力");
+
+    let config = Arc::new(tokio::sync::RwLock::new(AppConfig::default()));
+    let data_store = Arc::new(DataStore::new().await?);
+
+    // 测试所有Agent的构造
+    let clarifier = ClarifierAgent::new(config.clone()).await?;
+    println!("✅ ClarifierAgent构造成功");
+    
+    let innovator = InnovatorAgent::new(config.clone()).await?;
+    println!("✅ InnovatorAgent构造成功");
+    
+    let critic = CriticAgent::new(config.clone()).await?;
+    println!("✅ CriticAgent构造成功");
+    
+    let synthesizer = SynthesizerAgent::new(config.clone()).await?;
+    println!("✅ SynthesizerAgent构造成功");
+    
+    let verifier = VerifierAgent::new(config.clone(), data_store.clone()).await?;
+    println!("✅ VerifierAgent构造成功");
+    
+    let summarizer = SummarizerAgent::new(config.clone()).await?;
+    println!("✅ SummarizerAgent构造成功");
+
+    // 测试Agent能力
+    assert_eq!(clarifier.name(), "ClarifierAgent");
+    assert_eq!(innovator.name(), "InnovatorAgent");
+    assert_eq!(critic.name(), "CriticAgent");
+    assert_eq!(synthesizer.name(), "SynthesizerAgent");
+    assert_eq!(verifier.name(), "VerifierAgent");
+    assert_eq!(summarizer.name(), "SummarizerAgent");
+
+    println!("✅ Agent构造测试完成！");
+    Ok(())
+}
+
+/// 测试错误处理
+#[tokio::test]
+async fn test_error_handling() -> Result<()> {
+    println!("🚨 开始测试：错误处理机制");
+
+    let config = Arc::new(tokio::sync::RwLock::new(AppConfig::default()));
+
+    // 测试空输入的处理
+    let empty_context = AgentContext {
+        session_id: Uuid::new_v4(),
+        current_version: None,
+        clarification: None,
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![],
+    };
+
+    let clarifier = ClarifierAgent::new(config.clone()).await?;
+    let result = clarifier.execute(empty_context).await;
+    
+    match result {
+        Ok(_) => println!("✅ 空输入处理正常"),
+        Err(e) => println!("⚠️  空输入错误处理: {}", e),
+    }
+
+    println!("✅ 错误处理测试完成");
+    Ok(())
+}
+
+/// 完整的6-Agent协作工作流集成测试
+#[tokio::test]
+async fn test_complete_agent_workflow() -> Result<()> {
+    println!("🚀 开始集成测试：完整的6-Agent协作工作流");
+
+    // 1. 设置测试环境
+    let config = Arc::new(tokio::sync::RwLock::new(AppConfig::default()));
+    let data_store = Arc::new(DataStore::new().await?);
+    let mut runtime = AgentRuntime::new(config.clone(), data_store.clone());
+
+    // 注册所有6个Agent
+    runtime.register_agent(Box::new(ClarifierAgent::new(config.clone()).await?)).await?;
+    runtime.register_agent(Box::new(InnovatorAgent::new(config.clone()).await?)).await?;
+    runtime.register_agent(Box::new(CriticAgent::new(config.clone()).await?)).await?; 
+    runtime.register_agent(Box::new(SynthesizerAgent::new(config.clone()).await?)).await?;
+    runtime.register_agent(Box::new(VerifierAgent::new(config.clone(), data_store.clone()).await?)).await?;
+    runtime.register_agent(Box::new(SummarizerAgent::new(config.clone()).await?)).await?;
+
+    // 2. 创建测试用的初始想法
+    let idea_seed = IdeaSeed {
+        raw_text: "我想做一个能帮助学生提高学习效率的AI助手，但不太确定具体功能和实现方式".to_string(),
+        context_hints: vec!["教育科技".to_string(), "AI助手".to_string()],
+        domain: Some("教育".to_string()),
+    };
+
+    let session_id = Uuid::new_v4();
+    println!("💡 测试想法: {}", idea_seed.raw_text);
+
+    // 3. 阶段1: Clarifier Agent - 澄清想法
+    println!("\n📋 阶段1: Clarifier Agent 开始澄清想法...");
+    
+    let clarifier_context = AgentContext {
+        session_id,
+        current_version: None,
+        clarification: None,
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![],
+    };
+
+    let clarifier = ClarifierAgent::new(config.clone()).await?;
+    let clarifier_result = clarifier.execute(clarifier_context).await?;
+    
+    let clarification = match clarifier_result {
+        AgentResult::Clarification(c) => {
+            println!("✅ Clarifier完成，生成了{}个问题", c.qa_pairs.len());
+            for (i, qa) in c.qa_pairs.iter().enumerate() {
+                println!("   Q{}: {}", i+1, qa.question);
+            }
+            c
+        }
+        _ => panic!("Expected Clarification result"),
+    };
+
+    // 4. 阶段2: Innovator Agent - 生成创新建议  
+    println!("\n💡 阶段2: Innovator Agent 开始生成创新建议...");
+    
+    let innovator_context = AgentContext {
+        session_id,
+        current_version: None,
+        clarification: Some(clarification.clone()),
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![AgentResult::Clarification(clarification.clone())],
+    };
+
+    let innovator = InnovatorAgent::new(config.clone()).await?;
+    let innovator_result = innovator.execute(innovator_context).await?;
+    
+    let innovation_deltas = match innovator_result {
+        AgentResult::Innovation(deltas) => {
+            println!("✅ Innovator完成，生成了{}个创新建议", deltas.len());
+            for (i, delta) in deltas.iter().enumerate() {
+                println!("   Delta{}: 评分{:.1}", i+1, delta.overall_score());
+            }
+            deltas
+        }
+        _ => panic!("Expected Innovation result"),
+    };
+
+    // 5. 阶段3: Critic Agent - 批评分析
+    println!("\n🔍 阶段3: Critic Agent 开始批评分析...");
+    
+    let critic_context = AgentContext {
+        session_id,
+        current_version: None,
+        clarification: Some(clarification.clone()),
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![
+            AgentResult::Clarification(clarification.clone()),
+            AgentResult::Innovation(innovation_deltas.clone()),
+        ],
+    };
+
+    let critic = CriticAgent::new(config.clone()).await?;
+    let critic_result = critic.execute(critic_context).await?;
+    
+    let criticisms = match critic_result {
+        AgentResult::Criticism(crits) => {
+            println!("✅ Critic完成，生成了{}个批评意见", crits.len());
+            for (i, crit) in crits.iter().enumerate() {
+                println!("   批评{}: 严重程度{}/10", i+1, crit.severity);
+            }
+            crits
+        }
+        _ => panic!("Expected Criticism result"),
+    };
+
+    // 6. 阶段4: Synthesizer Agent - 综合归并
+    println!("\n🔄 阶段4: Synthesizer Agent 开始综合归并...");
+    
+    let synthesizer_context = AgentContext {
+        session_id,
+        current_version: None,
+        clarification: Some(clarification.clone()),
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![
+            AgentResult::Clarification(clarification.clone()),
+            AgentResult::Innovation(innovation_deltas.clone()),
+            AgentResult::Criticism(criticisms.clone()),
+        ],
+    };
+
+    let synthesizer = SynthesizerAgent::new(config.clone()).await?;
+    let synthesizer_result = synthesizer.execute(synthesizer_context).await?;
+    
+    let iteration_version = match synthesizer_result {
+        AgentResult::Iteration(iter) => {
+            println!("✅ Synthesizer完成，生成迭代版本 v{}", iter.version);
+            println!("   置信度: {:.1}%", iter.confidence * 100.0);
+            iter
+        }
+        _ => panic!("Expected Iteration result"),
+    };
+
+    // 7. 阶段5: Verifier Agent - 验证质量  
+    println!("\n🔍 阶段5: Verifier Agent 开始验证质量...");
+    
+    let verifier_context = AgentContext {
+        session_id,
+        current_version: Some(iteration_version.clone()),
+        clarification: Some(clarification.clone()),
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![
+            AgentResult::Clarification(clarification.clone()),
+            AgentResult::Innovation(innovation_deltas.clone()),
+            AgentResult::Criticism(criticisms.clone()),
+            AgentResult::Iteration(iteration_version.clone()),
+        ],
+    };
+
+    let verifier = VerifierAgent::new(config.clone(), data_store.clone()).await?;
+    let verifier_result = verifier.execute(verifier_context).await?;
+    
+    let verification_report = match verifier_result {
+        AgentResult::Verification(report) => {
+            println!("✅ Verifier完成，验证状态: {:?}", report.overall_pass);
+            println!("   逻辑检查: {}, 事实检查: {}", 
+                report.logic_check_passed, report.fact_check_passed);
+            report
+        }
+        _ => panic!("Expected Verification result"),
+    };
+
+    // 8. 阶段6: Summarizer Agent - 生成最终报告
+    println!("\n📊 阶段6: Summarizer Agent 开始生成最终报告...");
+    
+    let summarizer_context = AgentContext {
+        session_id,
+        current_version: Some(iteration_version.clone()),
+        clarification: Some(clarification.clone()),
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![
+            AgentResult::Clarification(clarification.clone()),
+            AgentResult::Innovation(innovation_deltas.clone()),
+            AgentResult::Criticism(criticisms.clone()),
+            AgentResult::Iteration(iteration_version.clone()),
+            AgentResult::Verification(verification_report.clone()),
+        ],
+    };
+
+    let summarizer = SummarizerAgent::new(config.clone()).await?;
+    let summarizer_result = summarizer.execute(summarizer_context).await?;
+    
+    let final_summary = match summarizer_result {
+        AgentResult::Summary(summary) => {
+            println!("✅ Summarizer完成，生成最终报告");
+            println!("   报告长度: {} 字符", summary.len());
+            println!("   前100字符预览: {}", 
+                &summary.chars().take(100).collect::<String>());
+            summary
+        }
+        _ => panic!("Expected Summary result"),
+    };
+
+    // 9. 验证完整性
+    println!("\n🏁 工作流完整性验证...");
+    
+    // 验证数据流连贯性
+    assert!(!clarification.qa_pairs.is_empty(), "澄清阶段应该生成问题");
+    assert!(!innovation_deltas.is_empty(), "创新阶段应该生成建议");
+    assert!(!criticisms.is_empty(), "批评阶段应该生成批评");
+    assert!(iteration_version.version > 0, "综合阶段应该生成版本");
+    assert!(!final_summary.is_empty(), "总结阶段应该生成报告");
+
+    // 验证Agent间状态传递
+    assert_eq!(iteration_version.session_id, session_id, "会话ID应该保持一致");
+    assert!(verification_report.overall_pass.is_some(), "验证报告应该有总体状态");
+
+    println!("✅ 集成测试完成！所有6个Agent成功协作完成工作流");
+    println!("📈 测试结果总结:");
+    println!("   - Clarifier: {}个问题", clarification.qa_pairs.len());
+    println!("   - Innovator: {}个创新建议", innovation_deltas.len()); 
+    println!("   - Critic: {}个批评意见", criticisms.len());
+    println!("   - Synthesizer: v{}版本，置信度{:.1}%", 
+        iteration_version.version, iteration_version.confidence * 100.0);
+    println!("   - Verifier: 通过状态{:?}", verification_report.overall_pass);
+    println!("   - Summarizer: {}字符报告", final_summary.len());
+
+    Ok(())
+}
+
+/// 测试错误处理
+#[tokio::test]
+async fn test_error_handling() -> Result<()> {
+    println!("� 开始测试：错误处理机制");
+
+    let config = Arc::new(tokio::sync::RwLock::new(AppConfig::default()));
+
+    // 测试空输入的处理
+    let empty_context = AgentContext {
+        session_id: Uuid::new_v4(),
+        current_version: None,
+        clarification: None,
+        previous_versions: vec![],
+        knowledge_base: vec![],
+        previous_results: vec![],
+    };
+
+    let clarifier = ClarifierAgent::new(config.clone()).await?;
+    let result = clarifier.execute(empty_context).await;
+    
+    match result {
+        Ok(_) => println!("✅ 空输入处理正常"),
+        Err(e) => println!("⚠️  空输入错误处理: {}", e),
+    }
+
+    println!("✅ 错误处理测试完成");
+    Ok(())
+}

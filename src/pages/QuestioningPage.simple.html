@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能反问 - 想法完成引擎</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        :root {
+            --primary-500: #3b82f6;
+            --secondary-600: #9333ea;
+        }
+        
+        .primary-gradient {
+            background: linear-gradient(135deg, var(--primary-500) 0%, var(--secondary-600) 100%);
+        }
+        
+        .message-bubble {
+            border-radius: 1rem;
+            padding: 1rem 1.25rem;
+            max-width: 80%;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .message-user {
+            background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 0.25rem;
+        }
+        
+        .message-ai {
+            background: white;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+            border-bottom-left-radius: 0.25rem;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .thinking-indicator {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 1rem;
+            padding: 0.75rem 1rem;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .thinking-dots .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #6366f1;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        
+        .thinking-dots .dot:nth-child(1) { animation-delay: -0.32s; }
+        .thinking-dots .dot:nth-child(2) { animation-delay: -0.16s; }
+        .thinking-dots .dot:nth-child(3) { animation-delay: 0s; }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { 
+                transform: scale(0);
+            } 40% { 
+                transform: scale(1);
+            }
+        }
+        
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        
+        .progress-ring-circle {
+            stroke-dasharray: 226;
+            stroke-dashoffset: 226;
+            transition: stroke-dashoffset 0.35s;
+        }
+        
+        .insight-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            transition: all 0.2s ease;
+        }
+        
+        .insight-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-color: #3b82f6;
+        }
+        
+        .chat-input {
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            transition: border-color 0.2s ease;
+            resize: none;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .send-button {
+            background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+            border-radius: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            color: white;
+            transition: opacity 0.2s ease;
+        }
+        
+        .send-button:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+        
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="h-screen bg-gray-50 overflow-hidden">
+    <!-- 返回导航 -->
+    <div class="fixed top-4 left-4 z-50">
+        <button onclick="window.location.href='idea-input.html'" class="bg-white rounded-lg shadow-lg border border-gray-200 px-4 py-2 flex items-center space-x-2 hover:bg-gray-50 transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span class="text-sm font-medium">返回想法输入</span>
+        </button>
+    </div>
+
+    <div class="h-full flex">
+        <!-- 左侧对话区 -->
+        <div class="flex-1 flex flex-col">
+            <!-- 对话历史 -->
+            <div class="flex-1 overflow-y-auto">
+                <div class="p-6">
+                    <div class="max-w-4xl mx-auto">
+                        <!-- 开场介绍 -->
+                        <div class="text-center py-12">
+                            <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <i data-lucide="message-circle" class="w-8 h-8 text-purple-600"></i>
+                            </div>
+                            <h1 class="text-3xl font-bold text-gray-900 mb-3">深入探讨您的想法</h1>
+                            <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+                                我会通过一系列有针对性的问题帮助您完善想法的各个方面，让我们开始吧！
+                            </p>
+                        </div>
+
+                        <!-- 消息列表 -->
+                        <div class="space-y-6" id="messages-container">
+                            <!-- AI 首条消息 -->
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="bot" class="w-4 h-4 text-purple-600"></i>
+                                </div>
+                                <div class="message-bubble message-ai">
+                                    <p class="text-gray-800">您好！我已经初步了解了您关于AI助手改进的想法。这确实是一个很有价值的方向。为了更好地帮助您完善这个想法，我想深入了解几个关键方面。</p>
+                                    <p class="text-gray-800 mt-3">首先，能否详细描述一下您目前使用的AI助手在哪些具体场景下让您感到不满意？比如是对话理解不够准确，还是功能覆盖不够全面？</p>
+                                </div>
+                            </div>
+
+                            <!-- 用户回复示例 -->
+                            <div class="flex items-start space-x-3 justify-end">
+                                <div class="message-bubble message-user">
+                                    <p>主要问题是AI助手在处理复杂多轮对话时容易丢失上下文，而且在专业领域的回答不够深入。比如当我询问技术问题时，它给出的答案往往比较表面，缺乏实际可操作的建议。</p>
+                                </div>
+                                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="user" class="w-4 h-4 text-white"></i>
+                                </div>
+                            </div>
+
+                            <!-- AI 深入提问 -->
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="bot" class="w-4 h-4 text-purple-600"></i>
+                                </div>
+                                <div class="message-bubble message-ai">
+                                    <p class="text-gray-800">非常有价值的反馈！上下文理解和专业深度确实是当前AI助手的核心挑战。</p>
+                                    <p class="text-gray-800 mt-3">针对您提到的技术问题场景，能具体举个例子吗？比如您最近一次遇到的技术问题是什么，AI助手给出了怎样的回答，而您期望的回答应该是什么样的？</p>
+                                    <p class="text-gray-800 mt-3">另外，您主要在哪些专业领域需要更深入的支持？</p>
+                                </div>
+                            </div>
+
+                            <!-- 思考中状态 -->
+                            <div class="flex items-start space-x-3" id="thinking-indicator" style="display: none;">
+                                <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="bot" class="w-4 h-4 text-purple-600"></i>
+                                </div>
+                                <div class="thinking-indicator">
+                                    <div class="flex items-center space-x-2">
+                                        <div class="thinking-dots flex space-x-1">
+                                            <div class="dot"></div>
+                                            <div class="dot"></div>
+                                            <div class="dot"></div>
+                                        </div>
+                                        <span class="text-sm text-gray-500">正在思考下一个问题...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 输入区 -->
+            <div class="border-t border-gray-200 bg-white p-6">
+                <div class="max-w-4xl mx-auto">
+                    <div class="flex items-end space-x-4">
+                        <div class="flex-1">
+                            <textarea 
+                                id="user-input"
+                                placeholder="输入您的回答..."
+                                rows="3"
+                                class="chat-input w-full"
+                                oninput="updateSendButton()"
+                                onkeydown="handleKeyDown(event)"
+                            ></textarea>
+                            <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
+                                <span>Shift + Enter 换行，Enter 发送</span>
+                                <span id="char-count">0 / 1000</span>
+                            </div>
+                        </div>
+                        <button 
+                            id="send-button"
+                            onclick="sendMessage()"
+                            disabled
+                            class="send-button flex items-center space-x-2"
+                        >
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                            <span>发送</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧进度面板 -->
+        <div class="w-80 bg-gray-50 border-l border-gray-200 overflow-y-auto">
+            <div class="p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-6">探讨进度</h2>
+
+                <!-- 完整度环形进度 -->
+                <div class="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+                    <h3 class="font-medium text-gray-900 mb-4 flex items-center">
+                        <i data-lucide="target" class="w-5 h-5 mr-2"></i>
+                        想法完整度
+                    </h3>
+                    <div class="flex items-center justify-center mb-4">
+                        <svg class="w-20 h-20 progress-ring">
+                            <circle cx="40" cy="40" r="36" stroke="#e5e7eb" stroke-width="8" fill="transparent"></circle>
+                            <circle 
+                                cx="40" cy="40" r="36" 
+                                stroke="#3b82f6" stroke-width="8" 
+                                fill="transparent"
+                                class="progress-ring-circle"
+                                style="stroke-dashoffset: 158.6;"
+                                id="completeness-progress">
+                            </circle>
+                        </svg>
+                        <div class="absolute text-center">
+                            <div class="text-xl font-bold text-gray-900" id="completeness-percent">65%</div>
+                        </div>
+                    </div>
+                    <div class="text-center text-sm text-gray-600">
+                        想法越来越清晰了！
+                    </div>
+                </div>
+
+                <!-- 关键洞察 -->
+                <div class="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+                    <h3 class="font-medium text-gray-900 mb-4 flex items-center">
+                        <i data-lucide="lightbulb" class="w-5 h-5 mr-2"></i>
+                        关键洞察
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="insight-item">
+                            <div class="flex items-start space-x-2">
+                                <div class="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <div>
+                                    <div class="font-medium text-gray-900 text-sm">核心痛点</div>
+                                    <div class="text-xs text-gray-600 mt-1">上下文理解和专业深度不足</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="insight-item">
+                            <div class="flex items-start space-x-2">
+                                <div class="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <div>
+                                    <div class="font-medium text-gray-900 text-sm">目标用户</div>
+                                    <div class="text-xs text-gray-600 mt-1">需要技术支持的专业人士</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="insight-item">
+                            <div class="flex items-start space-x-2">
+                                <div class="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <div>
+                                    <div class="font-medium text-gray-900 text-sm">改进方向</div>
+                                    <div class="text-xs text-gray-600 mt-1">多轮对话记忆和专业知识库</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 探讨维度 -->
+                <div class="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+                    <h3 class="font-medium text-gray-900 mb-4 flex items-center">
+                        <i data-lucide="layers" class="w-5 h-5 mr-2"></i>
+                        探讨维度
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-700">问题定义</span>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-700">用户场景</span>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-700">技术方案</span>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-orange-500 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-700">资源评估</span>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-700">成功指标</span>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="space-y-3">
+                    <button onclick="skipToDiscussion()" class="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2">
+                        <i data-lucide="fast-forward" class="w-4 h-4"></i>
+                        <span>进入协作讨论</span>
+                    </button>
+                    
+                    <button onclick="generateQuestions()" class="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2">
+                        <i data-lucide="help-circle" class="w-4 h-4"></i>
+                        <span>获取更多问题</span>
+                    </button>
+                </div>
+
+                <!-- 提示信息 -->
+                <div class="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="flex items-start space-x-2">
+                        <i data-lucide="info" class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0"></i>
+                        <div class="text-xs text-blue-800">
+                            <div class="font-medium mb-1">💡 小贴士</div>
+                            <div>尽量提供具体的例子和细节，这会帮助我们更好地理解您的需求并给出针对性的建议。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        let messageCount = 3; // 当前显示的消息数
+        let isThinking = false;
+
+        function updateSendButton() {
+            const input = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-button');
+            const charCount = document.getElementById('char-count');
+            
+            const currentLength = input.value.length;
+            charCount.textContent = `${currentLength} / 1000`;
+            
+            sendButton.disabled = currentLength === 0 || isThinking;
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            
+            if (message === '' || isThinking) return;
+            
+            // 添加用户消息
+            addUserMessage(message);
+            input.value = '';
+            updateSendButton();
+            
+            // 显示思考状态
+            showThinking();
+            
+            // 模拟AI回复
+            setTimeout(() => {
+                hideThinking();
+                addAIMessage(generateAIResponse(messageCount));
+                messageCount++;
+                updateProgress();
+            }, 2000 + Math.random() * 2000);
+        }
+
+        function addUserMessage(message) {
+            const container = document.getElementById('messages-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex items-start space-x-3 justify-end';
+            messageDiv.innerHTML = `
+                <div class="message-bubble message-user">
+                    <p>${message}</p>
+                </div>
+                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="user" class="w-4 h-4 text-white"></i>
+                </div>
+            `;
+            container.appendChild(messageDiv);
+            lucide.createIcons();
+            scrollToBottom();
+        }
+
+        function addAIMessage(message) {
+            const container = document.getElementById('messages-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex items-start space-x-3';
+            messageDiv.innerHTML = `
+                <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="bot" class="w-4 h-4 text-purple-600"></i>
+                </div>
+                <div class="message-bubble message-ai">
+                    <p class="text-gray-800">${message}</p>
+                </div>
+            `;
+            container.appendChild(messageDiv);
+            lucide.createIcons();
+            scrollToBottom();
+        }
+
+        function showThinking() {
+            isThinking = true;
+            document.getElementById('thinking-indicator').style.display = 'flex';
+            updateSendButton();
+            scrollToBottom();
+        }
+
+        function hideThinking() {
+            isThinking = false;
+            document.getElementById('thinking-indicator').style.display = 'none';
+            updateSendButton();
+        }
+
+        function scrollToBottom() {
+            const container = document.querySelector('.flex-1.overflow-y-auto');
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight;
+            }, 100);
+        }
+
+        function generateAIResponse(count) {
+            const responses = [
+                "很好的补充信息！您提到的具体技术场景让我更清楚地理解了问题。现在我想了解一下您的目标用户群体。除了您自己，还有哪些人会从这个改进的AI助手中受益？他们的技术背景如何？",
+                "非常有价值的反馈！基于您描述的使用场景，我想深入了解一下资源和约束条件。您计划投入多少时间和资源来实现这个改进？是考虑基于现有AI助手进行定制，还是开发全新的解决方案？",
+                "您的想法越来越清晰了！最后几个关键问题：您希望通过什么具体指标来衡量改进的成功？比如用户满意度提升多少，或者专业问题解答准确率达到什么水平？另外，您预期这个改进项目需要多长时间完成？",
+                "完美！通过我们的对话，您的想法已经很完整了。我注意到我们已经涵盖了问题定义、用户群体、技术方案和成功指标等关键方面。接下来，我建议让我们的智能体团队进行深入的协作讨论，从多个角度分析您的想法并提出具体的实施建议。"
+            ];
+            
+            return responses[Math.min(count - 3, responses.length - 1)];
+        }
+
+        function updateProgress() {
+            const progress = Math.min(65 + messageCount * 8, 95);
+            const circle = document.getElementById('completeness-progress');
+            const percentElement = document.getElementById('completeness-percent');
+            
+            const circumference = 226;
+            const offset = circumference - (progress / 100) * circumference;
+            
+            circle.style.strokeDashoffset = offset;
+            percentElement.textContent = progress + '%';
+        }
+
+        function skipToDiscussion() {
+            window.location.href = 'discussion.html';
+        }
+
+        function generateQuestions() {
+            const questions = [
+                "您的目标用户主要在哪些行业工作？",
+                "您认为最重要的技术挑战是什么？",
+                "您希望这个AI助手具备哪些独特功能？",
+                "您计划如何推广这个改进方案？"
+            ];
+            
+            const randomQuestion = questions[Math.floor(Math.random() * questions.length)];
+            addAIMessage(`这是一个很好的角度：${randomQuestion}`);
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSendButton();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目工作区 - 想法完成引擎</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        .primary-gradient {
+            background: linear-gradient(135deg, #3b82f6 0%, #9333ea 100%);
+        }
+        
+        .stage-content {
+            display: none;
+        }
+        
+        .stage-content.active {
+            display: block;
+        }
+        
+        .workflow-step {
+            padding: 1rem;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            margin-bottom: 0.5rem;
+        }
+        
+        .workflow-step.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #9333ea 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        .workflow-step.completed {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+        
+        .workflow-step.pending {
+            background: white;
+            color: #6b7280;
+            border-color: #e5e7eb;
+        }
+        
+        .workflow-step:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-input {
+            resize: none;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .message-bubble {
+            border-radius: 1rem;
+            padding: 1rem 1.25rem;
+            max-width: 80%;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .message-user {
+            background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 0.25rem;
+        }
+        
+        .message-ai {
+            background: white;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+            border-bottom-left-radius: 0.25rem;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="h-screen flex">
+        <!-- 左侧边栏 -->
+        <div class="w-96 bg-white border-r border-gray-200 flex flex-col">
+            <!-- 项目头部 -->
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between mb-4">
+                    <button onclick="window.location.href='index.html'" class="flex items-center text-gray-600 hover:text-gray-900">
+                        <i data-lucide="arrow-left" class="w-5 h-5 mr-2"></i>
+                        返回主页
+                    </button>
+                </div>
+                
+                <div class="mb-6">
+                    <h1 class="text-xl font-bold text-gray-900 mb-2">智能聊天助手</h1>
+                    <div class="relative p-4 rounded-lg primary-gradient text-white">
+                        <p class="text-sm leading-relaxed">
+                            优化现有AI助手的主要挑战是缺乏连续对话时的上下文记忆，以及对用户的特定需求和偏好缺乏个性化理解，导致多轮对话体验不流畅。
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- 项目统计 -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-blue-50 p-3 rounded-lg text-center">
+                        <div class="text-2xl font-bold text-blue-600">08</div>
+                        <div class="text-sm text-blue-600">项目天数</div>
+                    </div>
+                    <div class="bg-green-50 p-3 rounded-lg text-center">
+                        <div class="text-2xl font-bold text-green-600">5</div>
+                        <div class="text-sm text-green-600">智能体</div>
+                    </div>
+                </div>
+                
+                <!-- 总体进度 -->
+                <div class="mb-6">
+                    <div class="flex justify-between text-sm text-gray-600 mb-2">
+                        <span>总体进度</span>
+                        <span>40%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full relative" style="width: 40%">
+                            <div class="absolute right-0 top-0 w-3 h-3 bg-white rounded-full border-2 border-blue-500 transform translate-x-1"></div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">预计完成: 2天后</div>
+                </div>
+            </div>
+
+            <!-- 工作流程 -->
+            <div class="flex-1 p-6 overflow-y-auto">
+                <h3 class="font-semibold text-gray-900 mb-4">工作流程</h3>
+                
+                <div class="space-y-4">
+                    <div class="workflow-step active" id="step-input" onclick="selectStep('input')">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-sm font-medium mr-3">1</div>
+                            <div>
+                                <div class="font-medium">想法输入</div>
+                                <div class="text-sm opacity-90">描述您的想法</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="workflow-step pending" id="step-questioning" onclick="selectStep('questioning')">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-medium mr-3">2</div>
+                            <div>
+                                <div class="font-medium">智能追问</div>
+                                <div class="text-sm opacity-90">深入理解需求</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="workflow-step pending" id="step-discussion" onclick="selectStep('discussion')">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-medium mr-3">3</div>
+                            <div>
+                                <div class="font-medium">智能体协作</div>
+                                <div class="text-sm opacity-90">多角度分析</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="workflow-step pending" id="step-verification" onclick="selectStep('verification')">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-medium mr-3">4</div>
+                            <div>
+                                <div class="font-medium">方案验证</div>
+                                <div class="text-sm opacity-90">可行性分析</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="workflow-step pending" id="step-output" onclick="selectStep('output')">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-medium mr-3">5</div>
+                            <div>
+                                <div class="font-medium">成果输出</div>
+                                <div class="text-sm opacity-90">完整解决方案</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧主要内容区域 -->
+        <div class="flex-1 flex flex-col">
+            <!-- 想法输入阶段 -->
+            <div id="input-stage" class="stage-content active h-full">
+                <div class="p-8 h-full overflow-y-auto">
+                    <div class="max-w-4xl mx-auto text-center">
+                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i data-lucide="lightbulb" class="w-8 h-8 text-blue-600"></i>
+                        </div>
+                        <h1 class="text-2xl font-bold text-gray-900 mb-2">分享您的想法</h1>
+                        <p class="text-gray-600 mb-8">详细描述您的想法、包括背景、目标、遇到的问题等</p>
+                        
+                        <div class="max-w-2xl mx-auto">
+                            <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                                <textarea 
+                                    id="idea-input"
+                                    class="w-full h-48 p-4 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="请详细描述您的想法，包括背景、目标、遇到的问题等..."
+                                >优化现有AI助手的主要挑战是缺乏连续对话时的上下文记忆，以及对用户的特定需求和偏好缺乏个性化理解，导致多轮对话体验不流畅。</textarea>
+                                
+                                <div class="flex items-center justify-between mt-4 text-sm text-gray-500">
+                                    <span>0 / 5000 字符</span>
+                                    <button onclick="startQuestioning()" class="px-6 py-2 primary-gradient text-white rounded-lg hover:opacity-90 transition-opacity">
+                                        继续下一步
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-8 grid grid-cols-2 gap-6 max-w-2xl mx-auto">
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <h3 class="font-medium text-blue-900 mb-2">实时分析</h3>
+                                <div class="text-sm text-blue-700 space-y-1">
+                                    <div class="flex items-center justify-between">
+                                        <span>关键概念:</span>
+                                        <span class="font-medium">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-purple-50 p-4 rounded-lg">
+                                <h3 class="font-medium text-purple-900 mb-2">深入探讨您的想法</h3>
+                                <p class="text-sm text-purple-700">我会通过智能追问帮您完善各个细节，确保捕获到所有重要信息</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 智能追问阶段 -->
+            <div id="questioning-stage" class="stage-content h-full">
+                <div class="flex flex-col h-full">
+                    <div class="p-6 border-b border-gray-200 bg-white">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-900">智能追问</h2>
+                                <p class="text-gray-600">通过深度对话完善您的想法</p>
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                第 <span id="question-count">1</span> 轮追问
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto p-6 bg-gray-50" id="messages-container">
+                        <!-- 消息将动态添加到这里 -->
+                    </div>
+                    
+                    <div class="p-6 bg-white border-t border-gray-200">
+                        <div class="flex space-x-4">
+                            <textarea 
+                                id="chat-input"
+                                class="flex-1 p-3 border border-gray-300 rounded-lg chat-input"
+                                placeholder="输入您的回答..."
+                                rows="2"
+                            ></textarea>
+                            <button onclick="sendMessage()" class="px-6 py-3 primary-gradient text-white rounded-lg hover:opacity-90 transition-opacity">
+                                发送
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 智能体协作阶段 -->
+            <div id="discussion-stage" class="stage-content h-full">
+                <div class="p-8 h-full overflow-y-auto">
+                    <div class="max-w-6xl mx-auto">
+                        <div class="text-center mb-8">
+                            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i data-lucide="users" class="w-8 h-8 text-green-600"></i>
+                            </div>
+                            <h1 class="text-2xl font-bold text-gray-900 mb-2">智能体协作</h1>
+                            <p class="text-gray-600">5个专业智能体正在从不同角度分析您的想法</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- 技术专家 -->
+                            <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                                <div class="flex items-center mb-4">
+                                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                                        <i data-lucide="cpu" class="w-6 h-6 text-blue-600"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-semibold text-gray-900">技术架构师</h3>
+                                        <p class="text-sm text-gray-600">分析技术实现方案</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-3 text-sm">
+                                    <p class="text-gray-700">基于您的需求，我建议采用分层架构设计：</p>
+                                    <ul class="list-disc list-inside text-gray-600 space-y-1">
+                                        <li>会话管理层：处理多轮对话状态</li>
+                                        <li>记忆管理层：长期上下文存储</li>
+                                        <li>个性化层：用户偏好学习</li>
+                                        <li>知识检索层：增强回答准确性</li>
+                                    </ul>
+                                </div>
+                                <button onclick="selectStep('verification')" class="w-full mt-4 px-4 py-2 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors">
+                                    查看技术详情
+                                </button>
+                            </div>
+
+                            <!-- 产品经理 -->
+                            <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                                <div class="flex items-center mb-4">
+                                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
+                                        <i data-lucide="target" class="w-6 h-6 text-green-600"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-semibold text-gray-900">产品经理</h3>
+                                        <p class="text-sm text-gray-600">优化用户体验设计</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-3 text-sm">
+                                    <p class="text-gray-700">从用户体验角度，建议以下改进：</p>
+                                    <ul class="list-disc list-inside text-gray-600 space-y-1">
+                                        <li>渐进式对话引导</li>
+                                        <li>个性化推荐机制</li>
+                                        <li>智能上下文提示</li>
+                                        <li>多模态交互支持</li>
+                                    </ul>
+                                </div>
+                                <button class="w-full mt-4 px-4 py-2 border border-green-300 text-green-700 rounded-lg hover:bg-green-50 transition-colors">
+                                    查看设计原型
+                                </button>
+                            </div>
+
+                            <!-- 数据科学家 -->
+                            <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                                <div class="flex items-center mb-4">
+                                    <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mr-4">
+                                        <i data-lucide="bar-chart" class="w-6 h-6 text-purple-600"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-semibold text-gray-900">数据科学家</h3>
+                                        <p class="text-sm text-gray-600">分析数据策略</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-3 text-sm">
+                                    <p class="text-gray-700">数据驱动的优化建议：</p>
+                                    <ul class="list-disc list-inside text-gray-600 space-y-1">
+                                        <li>对话质量评估指标</li>
+                                        <li>用户行为模式分析</li>
+                                        <li>个性化效果测量</li>
+                                        <li>持续学习算法</li>
+                                    </ul>
+                                </div>
+                                <button class="w-full mt-4 px-4 py-2 border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 transition-colors">
+                                    查看数据方案
+                                </button>
+                            </div>
+
+                            <!-- 运维专家 -->
+                            <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                                <div class="flex items-center mb-4">
+                                    <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mr-4">
+                                        <i data-lucide="server" class="w-6 h-6 text-orange-600"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-semibold text-gray-900">运维专家</h3>
+                                        <p class="text-sm text-gray-600">确保系统稳定性</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-3 text-sm">
+                                    <p class="text-gray-700">运维和部署考虑：</p>
+                                    <ul class="list-disc list-inside text-gray-600 space-y-1">
+                                        <li>高可用架构设计</li>
+                                        <li>性能监控体系</li>
+                                        <li>弹性扩展策略</li>
+                                        <li>故障恢复机制</li>
+                                    </ul>
+                                </div>
+                                <button class="w-full mt-4 px-4 py-2 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors">
+                                    查看部署方案
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 text-center">
+                            <button onclick="selectStep('verification')" class="px-8 py-3 primary-gradient text-white rounded-lg hover:opacity-90 transition-opacity">
+                                继续验证方案
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 方案验证阶段 -->
+            <div id="verification-stage" class="stage-content h-full">
+                <div class="p-8 h-full overflow-y-auto">
+                    <div class="max-w-6xl mx-auto">
+                        <!-- 标题 -->
+                        <div class="text-center mb-8">
+                            <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i data-lucide="check-circle" class="w-8 h-8 text-orange-600"></i>
+                            </div>
+                            <h1 class="text-2xl font-bold text-gray-900 mb-2">方案验证</h1>
+                            <p class="text-gray-600">全面验证解决方案的可行性、有效性和风险评估</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <!-- 左侧：验证项目 -->
+                            <div class="lg:col-span-2 space-y-6">
+                                <!-- 技术可行性验证 -->
+                                <div class="bg-white rounded-xl shadow-lg border border-gray-200">
+                                    <div class="p-6 border-b border-gray-200">
+                                        <div class="flex items-center justify-between">
+                                            <h3 class="text-lg font-semibold text-gray-900">技术可行性验证</h3>
+                                            <div class="flex items-center space-x-2">
+                                                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                                                <span class="text-sm text-green-600 font-medium">已验证</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="p-6">
+                                        <div class="space-y-4">
+                                            <div class="verification-item">
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <span class="font-medium text-gray-900">分层架构设计</span>
+                                                    <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+                                                </div>
+                                                <p class="text-sm text-gray-600">架构设计合理，技术栈可行，性能指标达标</p>
+                                                <div class="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                                                    <span>可行性: 95%</span>
+                                                    <span>复杂度: 中等</span>
+                                                    <span>风险: 低</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="verification-item">
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <span class="font-medium text-gray-900">记忆管理系统</span>
+                                                    <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+                                                </div>
+                                                <p class="text-sm text-gray-600">长期对话上下文存储技术已验证</p>
+                                                <div class="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                                                    <span>可行性: 88%</span>
+                                                    <span>复杂度: 高</span>
+                                                    <span>风险: 中等</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="verification-item">
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <span class="font-medium text-gray-900">知识检索集成</span>
+                                                    <i data-lucide="alert-circle" class="w-5 h-5 text-yellow-500"></i>
+                                                </div>
+                                                <p class="text-sm text-gray-600">需要优化检索算法和知识库结构</p>
+                                                <div class="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                                                    <span>可行性: 78%</span>
+                                                    <span>复杂度: 高</span>
+                                                    <span>风险: 中等</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 资源评估 -->
+                                <div class="bg-white rounded-xl shadow-lg border border-gray-200">
+                                    <div class="p-6 border-b border-gray-200">
+                                        <h3 class="text-lg font-semibold text-gray-900">资源评估</h3>
+                                    </div>
+                                    <div class="p-6">
+                                        <div class="grid grid-cols-2 gap-6">
+                                            <div>
+                                                <h4 class="font-medium text-gray-900 mb-3">开发资源</h4>
+                                                <div class="space-y-3">
+                                                    <div class="flex justify-between">
+                                                        <span class="text-sm text-gray-600">前端开发</span>
+                                                        <span class="text-sm font-medium">2人·4周</span>
+                                                    </div>
+                                                    <div class="flex justify-between">
+                                                        <span class="text-sm text-gray-600">后端开发</span>
+                                                        <span class="text-sm font-medium">3人·6周</span>
+                                                    </div>
+                                                    <div class="flex justify-between">
+                                                        <span class="text-sm text-gray-600">AI算法</span>
+                                                        <span class="text-sm font-medium">2人·8周</span>
+                                                    </div>
+                                                    <div class="flex justify-between">
+                                                        <span class="text-sm text-gray-600">测试QA</span>
+                                                        <span class="text-sm font-medium">1人·3周</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h4 class="font-medium text-gray-900 mb-3">基础设施</h4>
+                                                <div class="space-y-3">
+                                                    <div class="flex justify-between">
+                                                        <span class="text-sm text-gray-600">云服务器</span>
+                                                        <span class="text-sm font-medium">¥5,000/月</span>
+                                                    </div>
+                                                    <div class="flex justify-between">
+                                                        <span class="text-sm text-gray-600">AI模型调用</span>
+                                                        <span class="text-sm font-medium">¥3,000/月</span>
+                                                    </div>
+                                                    <div class="flex justify-between">
+                                                        <span class="text-sm text-gray-600">数据存储</span>
+                                                        <span class="text-sm font-medium">¥1,200/月</span>
+                                                    </div>
+                                                    <div class="flex justify-between">
+                                                        <span class="text-sm text-gray-600">监控工具</span>
+                                                        <span class="text-sm font-medium">¥800/月</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 右侧：验证摘要 -->
+                            <div>
+                                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-6">验证摘要</h3>
+                                    
+                                    <!-- 总体评分 -->
+                                    <div class="text-center mb-6">
+                                        <div class="relative w-24 h-24 mx-auto mb-4">
+                                            <svg class="w-24 h-24 transform -rotate-90">
+                                                <circle cx="48" cy="48" r="40" stroke="#e5e7eb" stroke-width="8" fill="transparent"></circle>
+                                                <circle 
+                                                    cx="48" cy="48" r="40" 
+                                                    stroke="#10b981" stroke-width="8" 
+                                                    fill="transparent"
+                                                    stroke-dasharray="251"
+                                                    stroke-dashoffset="63"
+                                                    class="transition-all duration-500">
+                                                </circle>
+                                            </svg>
+                                            <div class="absolute inset-0 flex items-center justify-center">
+                                                <span class="text-2xl font-bold text-gray-900">87%</span>
+                                            </div>
+                                        </div>
+                                        <p class="text-sm text-gray-600">综合可行性评分</p>
+                                    </div>
+
+                                    <!-- 关键指标 -->
+                                    <div class="space-y-4">
+                                        <div>
+                                            <div class="flex justify-between text-sm mb-1">
+                                                <span class="text-gray-600">技术可行性</span>
+                                                <span class="font-medium">92%</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-green-500 h-2 rounded-full" style="width: 92%"></div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div class="flex justify-between text-sm mb-1">
+                                                <span class="text-gray-600">资源充足性</span>
+                                                <span class="font-medium">85%</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-blue-500 h-2 rounded-full" style="width: 85%"></div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div class="flex justify-between text-sm mb-1">
+                                                <span class="text-gray-600">风险控制</span>
+                                                <span class="font-medium">80%</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-yellow-500 h-2 rounded-full" style="width: 80%"></div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div class="flex justify-between text-sm mb-1">
+                                                <span class="text-gray-600">ROI预期</span>
+                                                <span class="font-medium">89%</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-purple-500 h-2 rounded-full" style="width: 89%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 推荐行动 -->
+                                    <div class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                        <h4 class="font-medium text-green-900 mb-2">推荐行动</h4>
+                                        <ul class="text-sm text-green-700 space-y-1">
+                                            <li>✓ 立即进入开发阶段</li>
+                                            <li>✓ 优先实现核心功能</li>
+                                            <li>! 加强风险监控</li>
+                                            <li>! 准备备用方案</li>
+                                        </ul>
+                                    </div>
+
+                                    <button onclick="selectStep('output')" class="w-full mt-6 px-4 py-3 primary-gradient text-white rounded-lg hover:opacity-90 transition-opacity font-medium">
+                                        生成完整方案
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 成果输出阶段 -->
+            <div id="output-stage" class="stage-content h-full">
+                <div class="p-8 h-full overflow-y-auto">
+                    <div class="max-w-7xl mx-auto">
+                        <!-- 标题 -->
+                        <div class="text-center mb-8">
+                            <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i data-lucide="download" class="w-8 h-8 text-purple-600"></i>
+                            </div>
+                            <h1 class="text-2xl font-bold text-gray-900 mb-2">成果输出</h1>
+                            <p class="text-gray-600">生成完整的解决方案文档和实施指南</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 xl:grid-cols-4 gap-8">
+                            <!-- 左侧：文档生成 -->
+                            <div class="xl:col-span-3 space-y-6">
+                                <!-- 文档类型选择 -->
+                                <div class="bg-white rounded-xl shadow-lg border border-gray-200">
+                                    <div class="p-6 border-b border-gray-200">
+                                        <h3 class="text-lg font-semibold text-gray-900">选择输出文档类型</h3>
+                                    </div>
+                                    <div class="p-6">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            <div class="doc-type-card p-4 border-2 border-blue-200 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                                                <div class="flex items-center mb-3">
+                                                    <i data-lucide="file-text" class="w-6 h-6 text-blue-600 mr-3"></i>
+                                                    <span class="font-medium text-blue-900">技术规格书</span>
+                                                </div>
+                                                <p class="text-sm text-blue-700">详细的技术实现规范和架构设计</p>
+                                                <div class="mt-3 flex items-center">
+                                                    <input type="checkbox" checked class="text-blue-600 rounded">
+                                                    <span class="ml-2 text-xs text-blue-600">已选择</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="doc-type-card p-4 border-2 border-green-200 bg-green-50 rounded-lg cursor-pointer hover:bg-green-100 transition-colors">
+                                                <div class="flex items-center mb-3">
+                                                    <i data-lucide="clipboard-list" class="w-6 h-6 text-green-600 mr-3"></i>
+                                                    <span class="font-medium text-green-900">实施计划</span>
+                                                </div>
+                                                <p class="text-sm text-green-700">分阶段的项目实施时间表和里程碑</p>
+                                                <div class="mt-3 flex items-center">
+                                                    <input type="checkbox" checked class="text-green-600 rounded">
+                                                    <span class="ml-2 text-xs text-green-600">已选择</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="doc-type-card p-4 border-2 border-purple-200 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors">
+                                                <div class="flex items-center mb-3">
+                                                    <i data-lucide="users" class="w-6 h-6 text-purple-600 mr-3"></i>
+                                                    <span class="font-medium text-purple-900">团队指南</span>
+                                                </div>
+                                                <p class="text-sm text-purple-700">开发团队的角色分工和协作规范</p>
+                                                <div class="mt-3 flex items-center">
+                                                    <input type="checkbox" class="text-purple-600 rounded">
+                                                    <span class="ml-2 text-xs text-purple-600">可选</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 生成预览 -->
+                                <div class="bg-white rounded-xl shadow-lg border border-gray-200">
+                                    <div class="p-6 border-b border-gray-200">
+                                        <div class="flex items-center justify-between">
+                                            <h3 class="text-lg font-semibold text-gray-900">文档预览</h3>
+                                            <div class="flex space-x-2">
+                                                <button class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
+                                                    <i data-lucide="eye" class="w-4 h-4 inline mr-1"></i>预览
+                                                </button>
+                                                <button class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                                    <i data-lucide="edit-3" class="w-4 h-4 inline mr-1"></i>编辑
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="p-6">
+                                        <div class="bg-gray-50 rounded-lg p-6 border-2 border-dashed border-gray-300">
+                                            <div class="text-center">
+                                                <i data-lucide="file-text" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
+                                                <h4 class="text-lg font-medium text-gray-900 mb-2">智能聊天助手技术规格书</h4>
+                                                <p class="text-sm text-gray-600 mb-4">基于多模态AI的企业级智能对话系统</p>
+                                                
+                                                <div class="text-left max-w-2xl mx-auto space-y-3">
+                                                    <div class="flex items-center text-sm text-gray-700">
+                                                        <span class="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
+                                                        <span>1. 系统架构设计 - 分层架构模式，微服务设计</span>
+                                                    </div>
+                                                    <div class="flex items-center text-sm text-gray-700">
+                                                        <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                                                        <span>2. 核心功能模块 - 会话管理、记忆系统、知识检索</span>
+                                                    </div>
+                                                    <div class="flex items-center text-sm text-gray-700">
+                                                        <span class="w-2 h-2 bg-purple-500 rounded-full mr-3"></span>
+                                                        <span>3. 技术实现方案 - AI模型集成、数据处理流程</span>
+                                                    </div>
+                                                    <div class="flex items-center text-sm text-gray-700">
+                                                        <span class="w-2 h-2 bg-orange-500 rounded-full mr-3"></span>
+                                                        <span>4. 部署与维护 - 云端部署、监控告警、版本管理</span>
+                                                    </div>
+                                                </div>
+
+                                                <div class="mt-6 flex items-center justify-center space-x-4 text-xs text-gray-500">
+                                                    <span>预计页数: 45页</span>
+                                                    <span>•</span>
+                                                    <span>生成时间: 2-3分钟</span>
+                                                    <span>•</span>
+                                                    <span>格式: PDF/Word</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 右侧：生成控制 -->
+                            <div>
+                                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-6">生成设置</h3>
+                                    
+                                    <!-- 输出格式 -->
+                                    <div class="mb-6">
+                                        <label class="block text-sm font-medium text-gray-700 mb-3">输出格式</label>
+                                        <div class="space-y-2">
+                                            <label class="flex items-center">
+                                                <input type="radio" name="format" value="pdf" checked class="text-blue-600">
+                                                <span class="ml-2 text-sm">PDF文档</span>
+                                            </label>
+                                            <label class="flex items-center">
+                                                <input type="radio" name="format" value="word" class="text-blue-600">
+                                                <span class="ml-2 text-sm">Word文档</span>
+                                            </label>
+                                            <label class="flex items-center">
+                                                <input type="radio" name="format" value="html" class="text-blue-600">
+                                                <span class="ml-2 text-sm">网页格式</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- 生成按钮 -->
+                                    <button class="w-full px-4 py-3 primary-gradient text-white rounded-lg hover:opacity-90 transition-opacity font-medium">
+                                        <i data-lucide="zap" class="w-5 h-5 inline mr-2"></i>
+                                        生成完整文档
+                                    </button>
+
+                                    <!-- 进度指示 -->
+                                    <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <h4 class="font-medium text-blue-900 mb-2">生成进度</h4>
+                                        <div class="w-full bg-blue-200 rounded-full h-2 mb-2">
+                                            <div class="bg-blue-600 h-2 rounded-full" style="width: 0%" id="generation-progress"></div>
+                                        </div>
+                                        <p class="text-xs text-blue-700" id="generation-status">准备生成...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化 Lucide 图标
+        lucide.createIcons();
+
+        let currentStep = 'input';
+        let messageCount = 1;
+
+        // 步骤切换功能
+        function selectStep(stepId) {
+            // 隐藏所有阶段
+            document.querySelectorAll('.stage-content').forEach(stage => {
+                stage.classList.remove('active');
+            });
+
+            // 显示指定阶段
+            document.getElementById(stepId + '-stage').classList.add('active');
+
+            // 更新工作流步骤状态
+            updateWorkflowSteps(stepId);
+            updateProgress(stepId);
+            
+            currentStep = stepId;
+            lucide.createIcons();
+        }
+
+        function updateWorkflowSteps(activeStep) {
+            const steps = ['input', 'questioning', 'discussion', 'verification', 'output'];
+            const activeIndex = steps.indexOf(activeStep);
+
+            steps.forEach((step, index) => {
+                const stepElement = document.getElementById(`step-${step}`);
+                const circle = stepElement.querySelector('.rounded-full');
+                
+                // 清除所有状态
+                stepElement.classList.remove('active', 'completed', 'pending');
+                
+                if (index < activeIndex) {
+                    // 已完成的步骤
+                    stepElement.classList.add('completed');
+                    circle.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i>';
+                    circle.className = 'w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-medium mr-3';
+                } else if (index === activeIndex) {
+                    // 当前步骤
+                    stepElement.classList.add('active');
+                    circle.innerHTML = index + 1;
+                    circle.className = 'w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-sm font-medium mr-3';
+                } else {
+                    // 未开始的步骤
+                    stepElement.classList.add('pending');
+                    circle.innerHTML = index + 1;
+                    circle.className = 'w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-medium mr-3';
+                }
+            });
+            
+            lucide.createIcons();
+        }
+
+        function updateProgress(step) {
+            const progress = {
+                'input': 20,
+                'questioning': 40,
+                'discussion': 60,
+                'verification': 80,
+                'output': 100
+            };
+            
+            const progressBar = document.querySelector('.bg-gradient-to-r');
+            if (progressBar) {
+                progressBar.style.width = progress[step] + '%';
+            }
+        }
+
+        // 开始追问
+        function startQuestioning() {
+            selectStep('questioning');
+            
+            // 添加初始AI消息
+            setTimeout(() => {
+                addAIMessage("很好！基于您描述的AI助手优化需求，我想更深入地了解一些细节。");
+                setTimeout(() => {
+                    addAIMessage("您提到了上下文记忆的问题。能具体说说您希望AI助手能够记住哪些类型的信息？比如是用户的个人偏好、历史对话内容，还是工作习惯等？");
+                }, 1500);
+            }, 1000);
+        }
+
+        // 发送消息
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (message) {
+                addUserMessage(message);
+                input.value = '';
+                
+                // 模拟AI回复
+                setTimeout(() => {
+                    const response = generateAIResponse(messageCount);
+                    addAIMessage(response);
+                    
+                    messageCount++;
+                    document.getElementById('question-count').textContent = messageCount;
+                    
+                    // 如果达到一定轮数，提供选项进入下一阶段
+                    if (messageCount >= 4) {
+                        setTimeout(() => {
+                            addAIMessage("非常好！我已经收集到了足够的信息。现在让我们的专业智能体团队来协作分析您的需求。");
+                            setTimeout(() => {
+                                const continueBtn = document.createElement('button');
+                                continueBtn.className = 'mt-4 px-6 py-2 primary-gradient text-white rounded-lg hover:opacity-90 transition-opacity';
+                                continueBtn.textContent = '开始智能体协作';
+                                continueBtn.onclick = () => selectStep('discussion');
+                                
+                                const lastMessage = document.querySelector('#messages-container .message-ai:last-child');
+                                if (lastMessage) {
+                                    lastMessage.appendChild(continueBtn);
+                                }
+                            }, 1000);
+                        }, 2000);
+                    }
+                }, 1000 + Math.random() * 1000);
+            }
+        }
+
+        // 添加用户消息
+        function addUserMessage(message) {
+            const container = document.getElementById('messages-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex items-start space-x-3 justify-end mb-4';
+            messageDiv.innerHTML = `
+                <div class="message-bubble message-user">
+                    <p>${message}</p>
+                </div>
+                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="user" class="w-4 h-4 text-white"></i>
+                </div>
+            `;
+            container.appendChild(messageDiv);
+            lucide.createIcons();
+            scrollToBottom();
+        }
+
+        // 添加AI消息
+        function addAIMessage(message) {
+            const container = document.getElementById('messages-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex items-start space-x-3 mb-4';
+            messageDiv.innerHTML = `
+                <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="bot" class="w-4 h-4 text-purple-600"></i>
+                </div>
+                <div class="message-bubble message-ai">
+                    <p>${message}</p>
+                </div>
+            `;
+            container.appendChild(messageDiv);
+            lucide.createIcons();
+            scrollToBottom();
+        }
+
+        // 生成AI回复
+        function generateAIResponse(count) {
+            const responses = [
+                "很好的补充信息！现在我想了解一下您的目标用户群体。除了您自己，还有哪些人会从这个改进的AI助手中受益？",
+                "非常有价值的反馈！基于您描述的使用场景，您计划投入多少时间和资源来实现这个改进？",
+                "您的想法越来越清晰了！最后一个问题：您希望通过什么具体指标来衡量改进的成功？"
+            ];
+            
+            return responses[Math.min(count - 1, responses.length - 1)];
+        }
+
+        // 滚动到底部
+        function scrollToBottom() {
+            const container = document.getElementById('messages-container');
+            if (container) {
+                setTimeout(() => {
+                    container.scrollTop = container.scrollHeight;
+                }, 100);
+            }
+        }
+
+        // 回车发送消息
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatInput = document.getElementById('chat-input');
+            if (chatInput) {
+                chatInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                });
+            }
+        });
+
+        // 初始化
+        selectStep('input');
+    </script>
+</body>
+</html>

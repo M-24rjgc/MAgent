@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>想法输入 - 想法完成引擎</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        :root {
+            --primary-500: #3b82f6;
+            --secondary-600: #9333ea;
+        }
+        
+        .primary-gradient {
+            background: linear-gradient(135deg, var(--primary-500) 0%, var(--secondary-600) 100%);
+        }
+        
+        .upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            border-color: #3b82f6;
+            background-color: #f8faff;
+        }
+        
+        .upload-area.drag-over {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .character-count {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+        
+        .character-count.warning {
+            color: #f59e0b;
+        }
+        
+        .character-count.danger {
+            color: #ef4444;
+        }
+        
+        .suggestion-item {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .suggestion-item:hover {
+            background-color: #f3f4f6;
+            border-color: #3b82f6;
+        }
+        
+        .analysis-panel {
+            background: linear-gradient(135deg, #f0f9ff 0%, #f5f3ff 100%);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+        
+        .progress-circle {
+            stroke-dasharray: 283;
+            stroke-dashoffset: 283;
+            transition: stroke-dashoffset 0.35s;
+            transform-origin: 50% 50%;
+            transform: rotate(-90deg);
+        }
+    </style>
+</head>
+<body class="h-screen bg-gray-50 overflow-hidden">
+    <!-- 返回导航 -->
+    <div class="fixed top-4 left-4 z-50">
+        <button onclick="window.location.href='index.html'" class="bg-white rounded-lg shadow-lg border border-gray-200 px-4 py-2 flex items-center space-x-2 hover:bg-gray-50 transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span class="text-sm font-medium">返回仪表板</span>
+        </button>
+    </div>
+
+    <div class="h-full flex">
+        <!-- 左侧输入区 -->
+        <div class="flex-1 overflow-y-auto">
+            <div class="p-6">
+                <div class="max-w-4xl mx-auto space-y-8">
+                    <!-- 输入提示 -->
+                    <div class="text-center py-8">
+                        <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-float">
+                            <i data-lucide="lightbulb" class="w-10 h-10 text-blue-600"></i>
+                        </div>
+                        <h1 class="text-3xl font-bold text-gray-900 mb-3">分享您的想法</h1>
+                        <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+                            无论多么模糊或不完整，我们都会帮助您完善它。请详细描述您的想法，包括背景、目标、遇到的问题等。
+                        </p>
+                    </div>
+
+                    <!-- 文本输入区 -->
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-200">
+                        <div class="p-6 border-b border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <h2 class="text-xl font-semibold text-gray-900">描述您的想法</h2>
+                                <div class="flex items-center space-x-2 text-sm character-count" id="char-counter">
+                                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                                    <span id="char-count">0</span> / 5000 字符
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-6">
+                            <textarea 
+                                id="idea-input"
+                                placeholder="请详细描述您的想法，包括背景、目标、遇到的问题等。不用担心表达不够完整，我们会通过对话帮您完善..."
+                                class="w-full h-80 p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+                                maxlength="5000"
+                                oninput="updateCharacterCount()"
+                            ></textarea>
+
+                            <!-- 输入建议 -->
+                            <div class="mt-6 bg-blue-50 rounded-lg p-4">
+                                <h3 class="font-medium text-blue-900 mb-3 flex items-center">
+                                    <i data-lucide="lightbulb" class="w-5 h-5 mr-2"></i>
+                                    输入建议
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div class="suggestion-item" onclick="applySuggestion('problem')">
+                                        <div class="font-medium text-gray-900 mb-1">✏️ 描述问题</div>
+                                        <div class="text-sm text-gray-600">说明您想解决的问题或实现的目标</div>
+                                    </div>
+                                    <div class="suggestion-item" onclick="applySuggestion('background')">
+                                        <div class="font-medium text-gray-900 mb-1">🏗️ 提及背景</div>
+                                        <div class="text-sm text-gray-600">包含相关的背景信息和约束条件</div>
+                                    </div>
+                                    <div class="suggestion-item" onclick="applySuggestion('attempts')">
+                                        <div class="font-medium text-gray-900 mb-1">🔬 已有尝试</div>
+                                        <div class="text-sm text-gray-600">说明您已有的初步思考或尝试</div>
+                                    </div>
+                                    <div class="suggestion-item" onclick="applySuggestion('audience')">
+                                        <div class="font-medium text-gray-900 mb-1">🎯 目标受众</div>
+                                        <div class="text-sm text-gray-600">说明预期的受众或应用场景</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 文档上传区 -->
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-200">
+                        <div class="p-6 border-b border-gray-200">
+                            <h2 class="text-xl font-semibold text-gray-900">补充文档（可选）</h2>
+                            <p class="text-sm text-gray-500 mt-1">上传相关文档帮助我们更好地理解您的想法</p>
+                        </div>
+
+                        <div class="p-6">
+                            <div class="upload-area" id="upload-area" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                                <div class="py-12 text-center">
+                                    <i data-lucide="upload-cloud" class="w-16 h-16 text-gray-400 mx-auto mb-4"></i>
+                                    <h3 class="text-lg font-medium text-gray-700 mb-2">拖拽文件到此处或点击上传</h3>
+                                    <p class="text-sm text-gray-500 mb-4">支持 PDF, Word, TXT, Markdown 格式，单文件最大 10MB</p>
+                                    <button onclick="document.getElementById('file-input').click()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                        选择文件
+                                    </button>
+                                    <input type="file" id="file-input" multiple accept=".pdf,.doc,.docx,.txt,.md" class="hidden" onchange="handleFileSelect(event)">
+                                </div>
+                            </div>
+
+                            <!-- 已上传文件列表 -->
+                            <div id="file-list" class="mt-4 space-y-2 hidden"></div>
+                        </div>
+                    </div>
+
+                    <!-- 操作按钮 -->
+                    <div class="flex justify-center space-x-4 pb-8">
+                        <button onclick="clearInput()" class="px-8 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
+                            清空重写
+                        </button>
+                        <button onclick="startAnalysis()" id="analyze-btn" class="px-8 py-3 primary-gradient text-white rounded-lg hover:opacity-90 transition-opacity font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2">
+                            <i data-lucide="play" class="w-5 h-5"></i>
+                            <span>开始分析</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧实时分析面板 -->
+        <div class="w-96 bg-gray-50 border-l border-gray-200 overflow-y-auto">
+            <div class="p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-6">实时分析</h2>
+
+                <!-- 完整度分析 -->
+                <div class="analysis-panel mb-6">
+                    <h3 class="font-medium text-gray-900 mb-4 flex items-center">
+                        <i data-lucide="pie-chart" class="w-5 h-5 mr-2"></i>
+                        想法完整度
+                    </h3>
+                    <div class="flex items-center justify-center mb-4">
+                        <svg class="w-24 h-24">
+                            <circle cx="48" cy="48" r="45" stroke="#e5e7eb" stroke-width="6" fill="transparent"></circle>
+                            <circle 
+                                cx="48" cy="48" r="45" 
+                                stroke="#3b82f6" stroke-width="6" 
+                                fill="transparent"
+                                class="progress-circle"
+                                style="stroke-dashoffset: 198;"
+                                id="completeness-circle">
+                            </circle>
+                        </svg>
+                        <div class="absolute text-center">
+                            <div class="text-2xl font-bold text-gray-900" id="completeness-percentage">30%</div>
+                        </div>
+                    </div>
+                    <div class="text-center text-sm text-gray-600">
+                        继续描述以提高完整度
+                    </div>
+                </div>
+
+                <!-- 关键词提取 -->
+                <div class="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+                    <h3 class="font-medium text-gray-900 mb-3 flex items-center">
+                        <i data-lucide="tag" class="w-5 h-5 mr-2"></i>
+                        关键概念
+                    </h3>
+                    <div id="keywords-container" class="flex flex-wrap gap-2">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            AI助手
+                        </span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            用户体验
+                        </span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            优化
+                        </span>
+                    </div>
+                </div>
+
+                <!-- 领域识别 -->
+                <div class="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+                    <h3 class="font-medium text-gray-900 mb-3 flex items-center">
+                        <i data-lucide="target" class="w-5 h-5 mr-2"></i>
+                        领域识别
+                    </h3>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-700">人工智能</span>
+                            <span class="text-sm font-medium text-blue-600">85%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5">
+                            <div class="bg-blue-600 h-1.5 rounded-full" style="width: 85%"></div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-700">软件开发</span>
+                            <span class="text-sm font-medium text-green-600">70%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5">
+                            <div class="bg-green-600 h-1.5 rounded-full" style="width: 70%"></div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-700">产品设计</span>
+                            <span class="text-sm font-medium text-purple-600">60%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5">
+                            <div class="bg-purple-600 h-1.5 rounded-full" style="width: 60%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 潜在问题 -->
+                <div class="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+                    <h3 class="font-medium text-gray-900 mb-3 flex items-center">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 mr-2"></i>
+                        需要澄清的问题
+                    </h3>
+                    <div class="space-y-3" id="questions-container">
+                        <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                            <div class="font-medium text-yellow-800 text-sm mb-1">目标用户群体</div>
+                            <div class="text-xs text-yellow-700">需要明确具体的用户群体和使用场景</div>
+                        </div>
+                        <div class="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                            <div class="font-medium text-orange-800 text-sm mb-1">技术约束</div>
+                            <div class="text-xs text-orange-700">需要了解现有技术栈和资源限制</div>
+                        </div>
+                        <div class="p-3 bg-red-50 rounded-lg border border-red-200">
+                            <div class="font-medium text-red-800 text-sm mb-1">成功指标</div>
+                            <div class="text-xs text-red-700">需要定义衡量改进效果的具体指标</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 建议 -->
+                <div class="bg-white rounded-lg p-4 border border-gray-200">
+                    <h3 class="font-medium text-gray-900 mb-3 flex items-center">
+                        <i data-lucide="lightbulb" class="w-5 h-5 mr-2"></i>
+                        优化建议
+                    </h3>
+                    <div class="space-y-2 text-sm text-gray-600">
+                        <div class="flex items-start space-x-2">
+                            <div class="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div>补充具体的用户场景描述</div>
+                        </div>
+                        <div class="flex items-start space-x-2">
+                            <div class="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div>说明当前存在的主要问题</div>
+                        </div>
+                        <div class="flex items-start space-x-2">
+                            <div class="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div>提供预期的改进目标</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分析中模态框 -->
+    <div id="analysis-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-8 max-w-md mx-4">
+            <div class="text-center">
+                <div class="w-16 h-16 primary-gradient rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="brain" class="w-8 h-8 text-white animate-pulse"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">正在分析您的想法</h3>
+                <p class="text-gray-600 mb-6">AI正在深入理解您的需求，请稍候...</p>
+                <div class="flex justify-center">
+                    <div class="flex space-x-1">
+                        <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                        <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.1s;"></div>
+                        <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        let uploadedFiles = [];
+
+        function updateCharacterCount() {
+            const textarea = document.getElementById('idea-input');
+            const counter = document.getElementById('char-count');
+            const counterElement = document.getElementById('char-counter');
+            const currentLength = textarea.value.length;
+            
+            counter.textContent = currentLength;
+            
+            // 更新颜色
+            counterElement.classList.remove('warning', 'danger');
+            if (currentLength > 4000) {
+                counterElement.classList.add('danger');
+            } else if (currentLength > 3000) {
+                counterElement.classList.add('warning');
+            }
+            
+            // 更新完整度
+            updateCompleteness(currentLength);
+            
+            // 更新分析按钮状态
+            const analyzeBtn = document.getElementById('analyze-btn');
+            analyzeBtn.disabled = currentLength < 50;
+            
+            // 模拟实时关键词提取
+            updateKeywords(textarea.value);
+        }
+
+        function updateCompleteness(textLength) {
+            const percentage = Math.min(Math.floor(textLength / 50), 100);
+            const circle = document.getElementById('completeness-circle');
+            const percentageElement = document.getElementById('completeness-percentage');
+            
+            const circumference = 283;
+            const offset = circumference - (percentage / 100) * circumference;
+            
+            circle.style.strokeDashoffset = offset;
+            percentageElement.textContent = percentage + '%';
+        }
+
+        function updateKeywords(text) {
+            const container = document.getElementById('keywords-container');
+            // 简单的关键词提取模拟
+            const keywords = [];
+            
+            if (text.toLowerCase().includes('ai') || text.toLowerCase().includes('人工智能')) {
+                keywords.push('AI助手');
+            }
+            if (text.toLowerCase().includes('用户') || text.toLowerCase().includes('体验')) {
+                keywords.push('用户体验');
+            }
+            if (text.toLowerCase().includes('优化') || text.toLowerCase().includes('改进')) {
+                keywords.push('优化');
+            }
+            if (text.toLowerCase().includes('系统') || text.toLowerCase().includes('平台')) {
+                keywords.push('系统平台');
+            }
+            if (text.toLowerCase().includes('智能') || text.toLowerCase().includes('自动')) {
+                keywords.push('智能化');
+            }
+            
+            container.innerHTML = keywords.map(keyword => 
+                `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${keyword}</span>`
+            ).join('');
+        }
+
+        function applySuggestion(type) {
+            const textarea = document.getElementById('idea-input');
+            const currentText = textarea.value;
+            
+            const suggestions = {
+                problem: '我想解决的问题是：',
+                background: '相关背景：',
+                attempts: '我已经尝试过：',
+                audience: '目标用户是：'
+            };
+            
+            if (currentText.length > 0 && !currentText.endsWith('\n')) {
+                textarea.value += '\n\n';
+            }
+            textarea.value += suggestions[type];
+            textarea.focus();
+            updateCharacterCount();
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('upload-area').classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            document.getElementById('upload-area').classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('upload-area').classList.remove('drag-over');
+            const files = Array.from(e.dataTransfer.files);
+            processFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = Array.from(e.target.files);
+            processFiles(files);
+        }
+
+        function processFiles(files) {
+            const fileList = document.getElementById('file-list');
+            fileList.classList.remove('hidden');
+            
+            files.forEach(file => {
+                if (file.size > 10 * 1024 * 1024) {
+                    alert(`文件 ${file.name} 超过10MB限制`);
+                    return;
+                }
+                
+                uploadedFiles.push(file);
+                
+                const fileItem = document.createElement('div');
+                fileItem.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200';
+                fileItem.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <i data-lucide="file-text" class="w-5 h-5 text-gray-500"></i>
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">${file.name}</div>
+                            <div class="text-xs text-gray-500">${(file.size / 1024).toFixed(1)} KB</div>
+                        </div>
+                    </div>
+                    <button onclick="removeFile('${file.name}')" class="text-red-500 hover:text-red-700">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                `;
+                fileList.appendChild(fileItem);
+            });
+            
+            lucide.createIcons();
+        }
+
+        function removeFile(fileName) {
+            uploadedFiles = uploadedFiles.filter(file => file.name !== fileName);
+            const fileList = document.getElementById('file-list');
+            fileList.innerHTML = '';
+            
+            if (uploadedFiles.length === 0) {
+                fileList.classList.add('hidden');
+            } else {
+                uploadedFiles.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200';
+                    fileItem.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <i data-lucide="file-text" class="w-5 h-5 text-gray-500"></i>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">${file.name}</div>
+                                <div class="text-xs text-gray-500">${(file.size / 1024).toFixed(1)} KB</div>
+                            </div>
+                        </div>
+                        <button onclick="removeFile('${file.name}')" class="text-red-500 hover:text-red-700">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    `;
+                    fileList.appendChild(fileItem);
+                });
+                lucide.createIcons();
+            }
+        }
+
+        function clearInput() {
+            document.getElementById('idea-input').value = '';
+            uploadedFiles = [];
+            document.getElementById('file-list').innerHTML = '';
+            document.getElementById('file-list').classList.add('hidden');
+            updateCharacterCount();
+        }
+
+        function startAnalysis() {
+            const textarea = document.getElementById('idea-input');
+            if (textarea.value.trim().length < 50) {
+                alert('请至少输入50个字符来描述您的想法');
+                return;
+            }
+            
+            // 显示分析模态框
+            document.getElementById('analysis-modal').classList.remove('hidden');
+            
+            // 模拟分析过程
+            setTimeout(() => {
+                document.getElementById('analysis-modal').classList.add('hidden');
+                // 跳转到智能反问页面
+                window.location.href = 'questioning.html';
+            }, 3000);
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCharacterCount();
+        });
+    </script>
+</body>
+</html>
